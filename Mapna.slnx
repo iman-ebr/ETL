@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="Mapna.Contracts/Mapna.Contracts.csproj" />
+  <Project Path="Mapna.LogData/Mapna.LogData.csproj" />
+</Solution>
