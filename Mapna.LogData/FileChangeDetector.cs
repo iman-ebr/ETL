@@ -2,7 +2,7 @@
 
 namespace Mapna.LogData;
 
-public static class FileChangeDetector
+public static class FieldChangeDetector
 {
     public static IReadOnlyList<string> GetChangedField<Tsource,TTarget>(Tsource src,TTarget target,params string[] excludeprop)
     {
