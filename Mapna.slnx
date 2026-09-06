@@ -1,5 +1,6 @@
 <Solution>
   <Project Path="Mapna.Contracts/Mapna.Contracts.csproj" />
   <Project Path="Mapna.LogData/Mapna.LogData.csproj" />
+  <Project Path="Mapna.Receiver/Mapna.Receiver.csproj" Id="ff9e385e-3436-46de-a8da-ee297f9a1977" />
   <Project Path="Mapna.Sender/Mapna.Sender.csproj" Id="5eb42cbd-82cf-4b79-9fb0-69dcf0553dd8" />
 </Solution>

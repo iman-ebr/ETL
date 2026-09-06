@@ -1,0 +1,6 @@
+@Mapna.Receiver_HostAddress = http://localhost:5250
+
+GET {{Mapna.Receiver_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

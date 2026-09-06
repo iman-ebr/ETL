@@ -4,5 +4,6 @@ public enum SendStatus
 {
     Sent,
     Duplicate,
-    ValidationFailed
+    ValidationFailed,
+    SendFailed
 }
