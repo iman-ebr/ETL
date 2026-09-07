@@ -22,18 +22,18 @@ public class RecordSender
             .WaitAndRetryAsync(retryCount:3, sleepDurationProvider: attempt => TimeSpan.FromSeconds(Math.Pow(2, attempt)));
     }
 
-    public async Task<(SendStatus status,string? reason)> SendAsync(PersonnelRecord record, SendDecision decision)
+    public async Task<(SendStatus status, string? reason)> SendAsync(PersonnelRecord record, SendDecision decision)
     {
-        switch (decision.Action)
+        if (decision.Action == SendAction.SkipValidationFailed)
         {
-            case SendAction.SkipValidationFailed:
-                await LogAsync(record.PerId, SendStatus.ValidationFailed, decision.Reason, decision.ChangedFields,
-                    decision.PayloadSnapshot);
-                break;
-            case SendAction.SkipDuplicate:
-                await LogAsync(record.PerId, SendStatus.Duplicate, null, null,
-                    decision.PayloadSnapshot);
-                break;
+            await LogAsync(record.PerId, SendStatus.ValidationFailed, decision.Reason, decision.ChangedFields, decision.PayloadSnapshot);
+            return (SendStatus.ValidationFailed, decision.Reason);
+        }
+
+        if (decision.Action == SendAction.SkipDuplicate)
+        {
+            await LogAsync(record.PerId, SendStatus.Duplicate, null, null, decision.PayloadSnapshot);
+            return (SendStatus.Duplicate, null);
         }
 
         try
@@ -41,6 +41,7 @@ public class RecordSender
             var json = JsonConvert.SerializeObject(record);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
             var response = await _retryPolicy.ExecuteAsync(() => _httpClient.PostAsync("api/personnel", content));
+
             if (response.IsSuccessStatusCode)
             {
                 await LogAsync(record.PerId, SendStatus.Sent, null, decision.ChangedFields, decision.PayloadSnapshot);
@@ -64,6 +65,7 @@ public class RecordSender
         _LogDbContext.SendLogs.Add(new SendLogEntry
         {
             PerId = perId,
+            OccurredAtUtc = DateTime.UtcNow,
             Status = status,
             Reason = reason,
             ChangedFields = changedField,

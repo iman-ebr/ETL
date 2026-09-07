@@ -152,8 +152,9 @@
             this.Font = new System.Drawing.Font("Segoe UI", 9F);
             this.RightToLeft = System.Windows.Forms.RightToLeft.Yes;
             this.RightToLeftLayout = true;
-            this.Text = "MapnaEtl - همگام‌سازی پرسنلی";
+            this.Text = "Mapna - ETL";
             this.MinimumSize = new System.Drawing.Size(750, 450);
+            this.Load += new System.EventHandler(this.Form1_Load);
 
             ((System.ComponentModel.ISupportInitialize)(this.gridResults)).EndInit();
             this.pnlHeader.ResumeLayout(false);

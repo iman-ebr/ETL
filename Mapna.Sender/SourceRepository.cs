@@ -33,7 +33,14 @@ public class SourceRepository
                 p.PER_CONTRACT        AS PerContract,
                 a.COMPANY_ID          AS CompanyId
             FROM PERSONEL p
-            LEFT JOIN ASSIGNMENT a ON a.PER_ID = p.PER_ID";
+            OUTER APPLY (
+                SELECT TOP 1 a2.COMPANY_ID
+                FROM ASSIGNMENT a2
+                WHERE a2.PER_ID = p.PER_ID
+                ORDER BY
+                    CASE WHEN a2.ASSIGNMENT_DISCHARGE_DATE IS NULL THEN 0 ELSE 1 END,
+                    a2.ASSIGNMENT_ASSIGN_DATE DESC
+            ) a";
 
         using IDbConnection connection = new SqlConnection(_connectionString);
         return connection.Query<PersonnelRecord>(query).ToList();

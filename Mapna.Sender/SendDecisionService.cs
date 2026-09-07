@@ -1,18 +1,31 @@
 ﻿using Mapna.Contracts;
 using Mapna.LogData;
+using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json;
 
 namespace Mapna.Sender;
 
 public class SendDecisionService
 {
-    private readonly LogDbContext _logsDb;
     private readonly PersonnelValidator _validator;
+    private readonly IReadOnlyDictionary<int, SendLogEntry> _lastSentByPerId;
 
-    public SendDecisionService(LogDbContext logsDb)
+    public SendDecisionService(IReadOnlyDictionary<int, SendLogEntry> lastSentByPerId)
     {
-        _logsDb = logsDb;
         _validator = new PersonnelValidator();
+        _lastSentByPerId = lastSentByPerId;
+    }
+
+    public static async Task<Dictionary<int, SendLogEntry>> LoadLastSentAsync(
+        LogDbContext logsDb, CancellationToken cancellationToken)
+    {
+        var latestPerPerId = await logsDb.SendLogs
+            .Where(x => x.Status == SendStatus.Sent)
+            .GroupBy(x => x.PerId)
+            .Select(g => g.OrderByDescending(x => x.OccurredAtUtc).First())
+            .ToListAsync(cancellationToken);
+
+        return latestPerPerId.ToDictionary(x => x.PerId);
     }
 
     public SendDecision Decide(PersonnelRecord record)
@@ -31,12 +44,8 @@ public class SendDecisionService
 
         var currentSnapshot = JsonConvert.SerializeObject(record);
 
-        var lastSent = _logsDb.SendLogs
-            .Where(x => x.PerId == record.PerId && x.Status == SendStatus.Sent)
-            .OrderByDescending(x => x.OccurredAtUtc)
-            .FirstOrDefault();
-
-        if (lastSent is null || string.IsNullOrEmpty(lastSent.PayloadSnapshot))
+        if (!_lastSentByPerId.TryGetValue(record.PerId, out var lastSent) ||
+            string.IsNullOrEmpty(lastSent.PayloadSnapshot))
         {
             return new SendDecision
             {
@@ -45,9 +54,27 @@ public class SendDecisionService
             };
         }
 
-        var previousRecord = JsonConvert.DeserializeObject<PersonnelRecord>(lastSent.PayloadSnapshot);
+        PersonnelRecord? previousRecord;
+        try
+        {
+            previousRecord = JsonConvert.DeserializeObject<PersonnelRecord>(lastSent.PayloadSnapshot);
+        }
+        catch (JsonException)
+        {
+            previousRecord = null;
+        }
+
+        if (previousRecord is null)
+        {
+            return new SendDecision
+            {
+                Action = SendAction.Send,
+                PayloadSnapshot = currentSnapshot
+            };
+        }
+
         var changedFields = FieldChangeDetector.GetChangedField(
-            record, previousRecord!, nameof(PersonnelRecord.PerId));
+            record, previousRecord, nameof(PersonnelRecord.PerId));
 
         if (changedFields.Count == 0)
         {

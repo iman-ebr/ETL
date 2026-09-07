@@ -104,7 +104,7 @@ namespace Mapna.Sender
             var rowIndex = gridResults.Rows.Add();
             var row = gridResults.Rows[rowIndex];
 
-            row.Cells[0].Value = progress.Processed;
+            row.Cells[0].Value = progress.CurrentPerId;
             row.Cells[1].Value = progress.CurrentPerson;
             row.Cells[2].Value = GetStatusText(progress);
             row.Cells[3].Value = progress.LastReason ?? string.Empty;
