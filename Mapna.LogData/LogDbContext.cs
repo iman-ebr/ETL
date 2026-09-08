@@ -27,7 +27,7 @@ public class LogDbContext : DbContext
         {
             e.ToTable("SendLogs");
             e.HasKey(x => x.Id);
-            e.Property(x => x.Status).HasConversion<string>().HasMaxLength(30);
+            e.Property(x => x.Status).HasConversion<string>().HasMaxLength(LogFieldLimit.StatusMaxLength);
             e.Property(x => x.Reason).HasMaxLength(500);
             e.Property(x => x.ChangedFields).HasMaxLength(500);
             e.Property(x => x.PayloadSnapshot).HasColumnType("nvarchar(max)");

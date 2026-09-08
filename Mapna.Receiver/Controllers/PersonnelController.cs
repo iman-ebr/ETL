@@ -1,11 +1,15 @@
 ﻿using Mapna.Contracts;
 using Mapna.LogData;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace Mapna.Receiver.Controllers;
 
 [Route("api/[controller]")]
 [ApiController]
+[Authorize]                          
+[EnableRateLimiting("PerClientLimit")]
 public class PersonnelController : ControllerBase
 {
     private readonly PersonnelUpsertService personnelUpsertService;

@@ -1,4 +1,7 @@
 ﻿using Mapna.LogData;
+using Microsoft.Extensions.DependencyInjection;
+using Polly;
+using Polly.Extensions.Http;
 
 namespace Mapna.Sender;
 
@@ -22,7 +25,11 @@ public class SyncOrchestrator
         var lastSentByPerId = await SendDecisionService.LoadLastSentAsync(logdb, cancellationToken);
         var decisionService = new SendDecisionService(lastSentByPerId);
 
-        using var httpclient = new HttpClient();
+        //using var httpclient = new HttpClient();
+        //httpclient.BaseAddress = new Uri(_settings.ReceiverApiBaseUrl);
+        using var serviceProvider = BuildHttpServices();
+        var httpClientFactory = serviceProvider.GetRequiredService<IHttpClientFactory>();
+        using var httpclient = httpClientFactory.CreateClient(ReceiverApiClientName);
         httpclient.BaseAddress = new Uri(_settings.ReceiverApiBaseUrl);
 
         if (!string.IsNullOrWhiteSpace(_settings.ReceiverApiKey))
@@ -57,7 +64,7 @@ public class SyncOrchestrator
                 catch (Exception ex)
                 {
                     status = SendStatus.SendFailed;
-                    reason = $"خطای غیرمنتظره در پردازش رکورد: {ex.Message}";
+                    reason = $"Unexpected error while proccessing data: {ex.Message}";
                 }
 
                 report.Processed++;
@@ -93,22 +100,22 @@ public class SyncOrchestrator
                 await logdb.SaveChangesAsync(CancellationToken.None);
         }
     }
-    // private static ServiceProvider BuildHttpServices()
-    // {
-    //     var services = new ServiceCollection();
-    //
-    //     services.AddHttpClient(ReceiverApiClientName)
-    //         .AddPolicyHandler(GetRetryPolicy());
-    //
-    //     return services.BuildServiceProvider();
-    // }
-    //
-    // private static IAsyncPolicy<HttpResponseMessage> GetRetryPolicy()
-    // {
-    //     return HttpPolicyExtensions
-    //         .HandleTransientHttpError()
-    //         .WaitAndRetryAsync(
-    //             retryCount: 3,
-    //             sleepDurationProvider: attempt => TimeSpan.FromSeconds(Math.Pow(2, attempt)));
-    // }
+    private static ServiceProvider BuildHttpServices()
+    {
+        var services = new ServiceCollection();
+
+        services.AddHttpClient(ReceiverApiClientName)
+            .AddPolicyHandler(GetRetryPolicy());
+
+        return services.BuildServiceProvider();
+    }
+
+    private static IAsyncPolicy<HttpResponseMessage> GetRetryPolicy()
+    {
+        return HttpPolicyExtensions
+            .HandleTransientHttpError()
+            .WaitAndRetryAsync(
+                retryCount: 3,
+                sleepDurationProvider: attempt => TimeSpan.FromSeconds(Math.Pow(2, attempt)));
+    }
 }
