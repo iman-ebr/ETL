@@ -13,7 +13,7 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddDbContext<LogDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("AppDatabase")));
 
-builder.Services.AddScoped<PesonnelUpsertService>();
+builder.Services.AddScoped<PersonnelUpsertService>();
 
 var app = builder.Build();
 

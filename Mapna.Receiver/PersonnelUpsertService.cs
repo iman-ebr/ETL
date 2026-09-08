@@ -4,16 +4,16 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Mapna.Receiver;
 
-public class PesonnelUpsertService
+public class PersonnelUpsertService
 {
     private readonly LogDbContext _db;
     private readonly PersonnelValidator validator;
 
-    public PesonnelUpsertService(LogDbContext db)
+    public PersonnelUpsertService(LogDbContext db)
     {
         _db = db;
         validator = new PersonnelValidator();
-    }
+    }   
 
     public async Task<ReceiveStatus> ProcessAsync(PersonnelRecord record)
     {

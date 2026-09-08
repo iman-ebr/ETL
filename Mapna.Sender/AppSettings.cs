@@ -7,6 +7,7 @@ public class AppSettings
     public string SourceConnectionString { get; set; } = string.Empty;
     public string AppConnectionString { get; set; } = string.Empty;
     public string ReceiverApiBaseUrl { get; set; } = string.Empty;
+    public string? ReceiverApiKey { get; set; }
 
     public static AppSettings Load()
     {
@@ -19,7 +20,8 @@ public class AppSettings
         {
             SourceConnectionString = config["SourceDatabase:ConnectionString"] ?? string.Empty,
             AppConnectionString = config["AppDatabase:ConnectionString"] ?? string.Empty,
-            ReceiverApiBaseUrl = config["ReceiverApi:BaseUrl"] ?? string.Empty
+            ReceiverApiBaseUrl = config["ReceiverApi:BaseUrl"] ?? string.Empty,
+            ReceiverApiKey = config["ReceiverApi:ApiKey"]
         };
     }
 }

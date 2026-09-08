@@ -31,7 +31,7 @@ public class LogDbContext : DbContext
             e.Property(x => x.Reason).HasMaxLength(500);
             e.Property(x => x.ChangedFields).HasMaxLength(500);
             e.Property(x => x.PayloadSnapshot).HasColumnType("nvarchar(max)");
-            e.HasIndex(x => x.PerId);
+            e.HasIndex(x => new { x.PerId, x.Status, x.OccurredAtUtc });
         });
 
         modelBuilder.Entity<ReceiveLogEntry>(e =>

@@ -1,6 +1,4 @@
-using Mapna.Sender;
 using Mapna.LogData;
-using static System.Windows.Forms.VisualStyles.VisualStyleElement;
 
 namespace Mapna.Sender
 {

@@ -8,13 +8,13 @@ namespace Mapna.Receiver.Controllers;
 [ApiController]
 public class PersonnelController : ControllerBase
 {
-    private readonly PesonnelUpsertService _pesonnelUpsertService;
+    private readonly PersonnelUpsertService personnelUpsertService;
     private readonly ILogger<PersonnelController> _logger;
 
-    public PersonnelController(PesonnelUpsertService pesonnelUpsertService,ILogger<PersonnelController> logger)
+    public PersonnelController(PersonnelUpsertService personnelUpsertService,ILogger<PersonnelController> logger)
     {
         _logger = logger;
-        _pesonnelUpsertService = pesonnelUpsertService;
+        this.personnelUpsertService = personnelUpsertService;
     }
 
     [HttpPost]
@@ -27,7 +27,7 @@ public class PersonnelController : ControllerBase
             return BadRequest("Record is null");
         try
         {
-            var status = await _pesonnelUpsertService.ProcessAsync(record);
+            var status = await personnelUpsertService.ProcessAsync(record);
             return status switch
             {
                 ReceiveStatus.ValidationFailed => UnprocessableEntity(new { perId = record.PerId, status = status.ToString() }),
