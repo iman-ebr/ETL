@@ -27,7 +27,7 @@ public class ApiKeyAuthenticationHandler : AuthenticationHandler<ApiKeyAuthentic
     {
         if (!Request.Headers.TryGetValue(ApiKeyAuthenticationOptions.HeaderName, out var providedKeyHeader))
         {
-            return Task.FromResult(AuthenticateResult.Fail("هدر X-Api-Key ارسال نشده است."));
+            return Task.FromResult(AuthenticateResult.Fail("X-Api-Key Header Not Sent"));
         }
 
         var providedKey = providedKeyHeader.ToString();
