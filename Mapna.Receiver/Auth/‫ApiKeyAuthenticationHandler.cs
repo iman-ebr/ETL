@@ -41,8 +41,6 @@ public class ApiKeyAuthenticationHandler : AuthenticationHandler<ApiKeyAuthentic
             return Task.FromResult(AuthenticateResult.Fail("کلید API نامعتبر است."));
         }
 
-        // شناسه‌ی کلاینت به‌عنوان Claim ثبت می‌شود؛ در هر Controller با User.Identity.Name
-        // یا از طریق لاگ‌های ASP.NET Core مشخص می‌شود کدام سرویس این درخواست را زده.
         var claims = new[] { new Claim(ClaimTypes.Name, matchedClientName) };
         var identity = new ClaimsIdentity(claims, Scheme.Name);
         var principal = new ClaimsPrincipal(identity);
