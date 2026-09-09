@@ -37,6 +37,23 @@ public class SourceRepository
             FROM PERSONEL_Sender";
 
         using IDbConnection connection = new SqlConnection(_connectionString);
-        return connection.Query<PersonnelRecord>(query).ToList();
+        var records = connection.Query<PersonnelRecord>(query).ToList();
+
+        foreach (var record in records)
+        {
+            record.Phone = NormalizeNull(record.Phone);
+            record.PerAddr = NormalizeNull(record.PerAddr);
+            record.PerEmail = NormalizeNull(record.PerEmail);
+            record.MobileNo = NormalizeNull(record.MobileNo);
+            record.UserPrincipalName = NormalizeNull(record.UserPrincipalName);
+            record.PerContract = NormalizeNull(record.PerContract);
+            record.BornDate = NormalizeNull(record.BornDate);
+        }
+
+        return records;
     }
+    private static string? NormalizeNull(string? value) =>
+    string.IsNullOrWhiteSpace(value) || value.Trim().Equals("NULL", StringComparison.OrdinalIgnoreCase)
+        ? null
+        : value;
 }

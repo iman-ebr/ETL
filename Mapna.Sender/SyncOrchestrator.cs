@@ -41,7 +41,9 @@ public class SyncOrchestrator
         var sender = new RecordSender(httpclient, logdb);
         var report = new SyncProgress { Total = records.Count };
         var unsavedCount = 0;
-
+        var totalCount = records.Count;
+        int processedCount = 0, sentCount = 0, duplicateCount = 0, failedCount = 0;
+        
         try
         {
             foreach (var record in records)
@@ -67,31 +69,56 @@ public class SyncOrchestrator
                     reason = $"Unexpected error while proccessing data: {ex.Message}";
                 }
 
-                report.Processed++;
-                // report.CurrentPerId = record.PerId;
-                report.LastStatus = status;
-                report.LastReason = reason;
+                //report.Processed++;
+                //// report.CurrentPerId = record.PerId;
+                //report.LastStatus = status;
+                //report.LastReason = reason;
 
+                //switch (status)
+                //{
+                //    case SendStatus.Sent:
+                //        report.SentCount++;
+                //        break;
+                //    case SendStatus.Duplicate:
+                //        report.DuplicateCount++;
+                //        break;
+                //    case SendStatus.ValidationFailed:
+                //    case SendStatus.SendFailed:
+                //        report.FailedCount++;
+                //        break;
+                //}
+
+                //progress.Report(report);
+                //unsavedCount++;
+                //if (unsavedCount < saveBatchSize) continue;
+                //await logdb.SaveChangesAsync(CancellationToken.None);
+                //unsavedCount = 0;
+                processedCount++;
                 switch (status)
                 {
-                    case SendStatus.Sent:
-                        report.SentCount++;
-                        break;
-                    case SendStatus.Duplicate:
-                        report.DuplicateCount++;
-                        break;
+                    case SendStatus.Sent: sentCount++; break;
+                    case SendStatus.Duplicate: duplicateCount++; break;
                     case SendStatus.ValidationFailed:
-                    case SendStatus.SendFailed:
-                        report.FailedCount++;
-                        break;
+                    case SendStatus.SendFailed: failedCount++; break;
                 }
 
-                progress.Report(report);
+                progress.Report(new SyncProgress
+                {
+                    Total = totalCount,
+                    Processed = processedCount,
+                    SentCount = sentCount,
+                    DuplicateCount = duplicateCount,
+                    FailedCount = failedCount,
+                    CurrentPerson = $"{record.PerName} {record.PerSurname}",
+                    CurrentPerId = record.PerId,
+                    LastStatus = status,
+                    LastReason = reason
+                });
+
                 unsavedCount++;
                 if (unsavedCount < saveBatchSize) continue;
                 await logdb.SaveChangesAsync(CancellationToken.None);
                 unsavedCount = 0;
-
             }
         }
         finally
