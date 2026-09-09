@@ -1,4 +1,5 @@
 using Mapna.LogData;
+using System.Diagnostics;
 
 namespace Mapna.Sender
 {
@@ -6,10 +7,13 @@ namespace Mapna.Sender
     {
         private CancellationTokenSource? _cts;
         private AppSettings? _settings;
+        private readonly Stopwatch _stopwatch = new();
+        private readonly System.Windows.Forms.Timer _elapsedTimer = new() { Interval = 500 };
 
         public Form1()
         {
             InitializeComponent();
+            _elapsedTimer.Tick += (_, _) => UpdateElapsedLabel();
         }
 
         private void Form1_Load(object sender, EventArgs e)
@@ -21,8 +25,8 @@ namespace Mapna.Sender
             catch (Exception ex)
             {
                 MessageBox.Show(
-                    $"خطا در بارگذاری فایل تنظیمات:\n{ex.Message}",
-                    "خطای پیکربندی",
+                    $"Failed to load configuration file:\n{ex.Message}",
+                    "Configuration Error",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Error);
 
@@ -37,10 +41,14 @@ namespace Mapna.Sender
 
             gridResults.Rows.Clear();
             progressBar.Value = 0;
-            lblProgressPercent.Text = "در حال آماده‌سازی...";
+            lblProgressPercent.Text = "Preparing...";
+            lblCurrentStatus.Text = "Running";
+            ResetStatCards();
             SetControlsRunningState(isRunning: true);
 
             _cts = new CancellationTokenSource();
+            _stopwatch.Restart();
+            _elapsedTimer.Start();
 
             var progress = new Progress<SyncProgress>(UpdateUi);
 
@@ -49,24 +57,30 @@ namespace Mapna.Sender
                 var orchestrator = new SyncOrchestrator(_settings);
                 await orchestrator.RunAsync(progress, _cts.Token);
 
-                lblProgressPercent.Text = "عملیات با موفقیت به پایان رسید";
+                lblProgressPercent.Text = "Completed successfully";
+                lblCurrentStatus.Text = "Completed";
             }
             catch (OperationCanceledException)
             {
-                lblProgressPercent.Text = "عملیات توسط کاربر لغو شد";
+                lblProgressPercent.Text = "Cancelled by user";
+                lblCurrentStatus.Text = "Cancelled";
             }
             catch (Exception ex)
             {
                 MessageBox.Show(
-                    $"خطای غیرمنتظره در حین همگام‌سازی:\n{ex.Message}",
-                    "خطا",
+                    $"An unexpected error occurred while syncing:\n{ex.Message}",
+                    "Error",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Error);
 
-                lblProgressPercent.Text = "عملیات با خطا متوقف شد";
+                lblProgressPercent.Text = "Stopped due to an error";
+                lblCurrentStatus.Text = "Error";
             }
             finally
             {
+                _stopwatch.Stop();
+                _elapsedTimer.Stop();
+                UpdateElapsedLabel();
                 SetControlsRunningState(isRunning: false);
                 _cts?.Dispose();
                 _cts = null;
@@ -77,7 +91,8 @@ namespace Mapna.Sender
         {
             _cts?.Cancel();
             btnCancel.Enabled = false;
-            lblProgressPercent.Text = "در حال لغو عملیات...";
+            lblProgressPercent.Text = "Cancelling...";
+            lblCurrentStatus.Text = "Cancelling";
         }
 
         private void UpdateUi(SyncProgress progress)
@@ -87,14 +102,36 @@ namespace Mapna.Sender
                 : (int)((double)progress.Processed / progress.Total * 100);
 
             progressBar.Value = Math.Min(percent, 100);
-            lblProgressPercent.Text = $"{percent}% — {progress.Processed} از {progress.Total}";
+            lblProgressPercent.Text = $"{percent}%  —  {progress.Processed} of {progress.Total}"
+                + (string.IsNullOrEmpty(progress.CurrentPerson) ? "" : $"  ({progress.CurrentPerson})");
 
-            lblTotal.Text = $"کل رکوردها: {progress.Total}";
-            lblSent.Text = $"  |  ارسال‌شده: {progress.SentCount}";
-            lblDuplicate.Text = $"  |  تکراری: {progress.DuplicateCount}";
-            lblFailed.Text = $"  |  ناموفق: {progress.FailedCount}";
+            lblValueTotal.Text = progress.Total.ToString();
+            lblValueSent.Text = progress.SentCount.ToString();
+            lblValueDuplicate.Text = progress.DuplicateCount.ToString();
+            lblValueFailed.Text = progress.FailedCount.ToString();
 
+            UpdateThroughputLabel(progress.Processed);
             AddOrUpdateRow(progress);
+        }
+
+        private void UpdateElapsedLabel()
+        {
+            lblElapsed.Text = $"  |  Elapsed: {_stopwatch.Elapsed:hh\\:mm\\:ss}";
+        }
+
+        private void UpdateThroughputLabel(int processed)
+        {
+            var seconds = _stopwatch.Elapsed.TotalSeconds;
+            var rate = seconds > 0.5 ? processed / seconds : 0;
+            lblThroughput.Text = $"  |  {rate:0.#} records/sec";
+        }
+
+        private void ResetStatCards()
+        {
+            lblValueTotal.Text = "0";
+            lblValueSent.Text = "0";
+            lblValueDuplicate.Text = "0";
+            lblValueFailed.Text = "0";
         }
 
         private void AddOrUpdateRow(SyncProgress progress)
@@ -116,11 +153,11 @@ namespace Mapna.Sender
         {
             return progress.LastStatus switch
             {
-                SendStatus.Sent => "ارسال شد",
-                SendStatus.Duplicate => "تکراری - بدون تغییر",
-                SendStatus.ValidationFailed => "نامعتبر",
-                SendStatus.SendFailed => "خطای ارسال",
-                _ => "نامشخص"
+                SendStatus.Sent => "Sent",
+                SendStatus.Duplicate => "Duplicate — no change",
+                SendStatus.ValidationFailed => "Invalid",
+                SendStatus.SendFailed => "Send failed",
+                _ => "Unknown"
             };
         }
 

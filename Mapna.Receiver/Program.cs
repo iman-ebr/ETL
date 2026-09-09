@@ -11,7 +11,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen(options=> 
+builder.Services.AddSwaggerGen(options =>
 {
     options.AddSecurityDefinition(ApiKeyAuthenticationOptions.DefaultScheme, new OpenApiSecurityScheme
     {
@@ -21,20 +21,13 @@ builder.Services.AddSwaggerGen(options=>
         Description = "Enter the sender service API key here (X-Api-Key header)"
     });
 
-    options.AddSecurityRequirement(new OpenApiSecurityRequirement
-    {
+    options.AddSecurityRequirement(document =>
+        new OpenApiSecurityRequirement
         {
-            new OpenApiSecurityScheme
-            {
-                Reference = new OpenApiReference
-                {
-                    Type = ReferenceType.SecurityScheme,
-                    Id = ApiKeyAuthenticationOptions.DefaultScheme
-                }
-            },
-            Array.Empty<string>()
-        }
-    });
+            [new OpenApiSecuritySchemeReference(
+                ApiKeyAuthenticationOptions.DefaultScheme,
+                document)] = []
+        });
 });
 
 builder.Services.AddDbContext<LogDbContext>(options =>
@@ -80,6 +73,8 @@ app.UseHttpsRedirection();
 app.UseAuthentication();
 
 app.UseAuthorization();
+
+app.UseRateLimiter();
 
 app.MapControllers();
 

@@ -18,12 +18,12 @@ public class LogDbContextDesignTimeFactory : IDesignTimeDbContextFactory<LogDbCo
             .Build();
 
         var connectionstring = configuration.GetConnectionString("AppDataBase") ??
-                               configuration.GetConnectionString("AppDataBase:ConnectionString")
+                               configuration["AppDataBase:ConnectionString"]
                                ?? FallbackConnectionString;
 
         var optionbuilder = new DbContextOptionsBuilder<LogDbContext>();
         optionbuilder.UseSqlServer(connectionstring);
-        return new LogDbContext(optionbuilder.Options); 
+        return new LogDbContext(optionbuilder.Options);
 
     }
 }

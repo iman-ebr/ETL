@@ -85,7 +85,7 @@ public class PersonnelUpsertService
             OccurredAtUtc = DateTime.UtcNow,
             Status = status,
             ChangedFields = changedFields,
-            Reason = reason
+            Reason = LogFieldLimit.Truncate(reason, LogFieldLimit.ReasonMaxLength)
         });
 
         return Task.CompletedTask;

@@ -34,7 +34,7 @@ public class SourceRepository
                 USER_PRINCIPAL_NAME AS UserPrincipalName,
                 PER_CONTRACT        AS PerContract,
                 COMPANY_ID          AS CompanyId
-            FROM PERSONEL";
+            FROM PERSONEL_Sender";
 
         using IDbConnection connection = new SqlConnection(_connectionString);
         return connection.Query<PersonnelRecord>(query).ToList();
