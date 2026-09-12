@@ -11,6 +11,10 @@
             base.Dispose(disposing);
         }
 
+        private System.Windows.Forms.TabControl tabControlMain;
+        private System.Windows.Forms.TabPage tabDashboard;
+        private System.Windows.Forms.TabPage tabDataExplorer;
+
         private System.Windows.Forms.Panel pnlHeader;
         private System.Windows.Forms.Label lblTitle;
         private System.Windows.Forms.Label lblSubtitle;
@@ -31,6 +35,13 @@
         private System.Windows.Forms.DataGridViewTextBoxColumn colStatus;
         private System.Windows.Forms.DataGridViewTextBoxColumn colDetail;
 
+        private System.Windows.Forms.Panel pnlExplorerToolbar;
+        private System.Windows.Forms.TextBox txtSearch;
+        private System.Windows.Forms.Label lblSearchHint;
+        private System.Windows.Forms.Button btnRefreshExplorer;
+        private System.Windows.Forms.Label lblExplorerCount;
+        private System.Windows.Forms.DataGridView gridExplorer;
+
         private System.Windows.Forms.StatusStrip statusStrip;
         private System.Windows.Forms.ToolStripStatusLabel lblCurrentStatus;
         private System.Windows.Forms.ToolStripStatusLabel lblElapsed;
@@ -43,9 +54,15 @@
         private static readonly System.Drawing.Color ColorAccentGreen = System.Drawing.Color.FromArgb(22, 163, 74);
         private static readonly System.Drawing.Color ColorAccentGray = System.Drawing.Color.FromArgb(100, 116, 139);
         private static readonly System.Drawing.Color ColorAccentRed = System.Drawing.Color.FromArgb(220, 38, 38);
+        private static readonly System.Drawing.Color ColorInvalidRow = System.Drawing.Color.FromArgb(255, 235, 238);
+        private static readonly System.Drawing.Color ColorBorder = System.Drawing.Color.FromArgb(226, 232, 240);
 
         private void InitializeComponent()
         {
+            this.tabControlMain = new System.Windows.Forms.TabControl();
+            this.tabDashboard = new System.Windows.Forms.TabPage();
+            this.tabDataExplorer = new System.Windows.Forms.TabPage();
+
             this.pnlHeader = new System.Windows.Forms.Panel();
             this.lblTitle = new System.Windows.Forms.Label();
             this.lblSubtitle = new System.Windows.Forms.Label();
@@ -62,14 +79,23 @@
             this.colStatus = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.colDetail = new System.Windows.Forms.DataGridViewTextBoxColumn();
 
+            this.pnlExplorerToolbar = new System.Windows.Forms.Panel();
+            this.txtSearch = new System.Windows.Forms.TextBox();
+            this.lblSearchHint = new System.Windows.Forms.Label();
+            this.btnRefreshExplorer = new System.Windows.Forms.Button();
+            this.lblExplorerCount = new System.Windows.Forms.Label();
+            this.gridExplorer = new System.Windows.Forms.DataGridView();
+
             this.statusStrip = new System.Windows.Forms.StatusStrip();
             this.lblCurrentStatus = new System.Windows.Forms.ToolStripStatusLabel();
             this.lblElapsed = new System.Windows.Forms.ToolStripStatusLabel();
             this.lblThroughput = new System.Windows.Forms.ToolStripStatusLabel();
 
             ((System.ComponentModel.ISupportInitialize)(this.gridResults)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.gridExplorer)).BeginInit();
             this.pnlHeader.SuspendLayout();
             this.pnlStats.SuspendLayout();
+            this.pnlExplorerToolbar.SuspendLayout();
             this.statusStrip.SuspendLayout();
             this.SuspendLayout();
 
@@ -133,10 +159,10 @@
             this.pnlStats.Dock = System.Windows.Forms.DockStyle.Top;
             this.pnlStats.Height = 92;
 
-            CreateStatCard("TOTAL RECORDS", ColorAccentBlue, 24, out this.lblValueTotal);
-            CreateStatCard("SENT", ColorAccentGreen, 270, out this.lblValueSent);
-            CreateStatCard("DUPLICATE (SKIPPED)", ColorAccentGray, 516, out this.lblValueDuplicate);
-            CreateStatCard("FAILED", ColorAccentRed, 762, out this.lblValueFailed);
+            CreateStatCard(this.pnlStats, "TOTAL RECORDS", ColorAccentBlue, 24, out this.lblValueTotal);
+            CreateStatCard(this.pnlStats, "SENT", ColorAccentGreen, 270, out this.lblValueSent);
+            CreateStatCard(this.pnlStats, "DUPLICATE (SKIPPED)", ColorAccentGray, 516, out this.lblValueDuplicate);
+            CreateStatCard(this.pnlStats, "FAILED", ColorAccentRed, 762, out this.lblValueFailed);
 
             this.gridResults.Dock = System.Windows.Forms.DockStyle.Fill;
             this.gridResults.BackgroundColor = System.Drawing.Color.White;
@@ -171,6 +197,96 @@
             this.colDetail.Name = "colDetail";
             this.colDetail.FillWeight = 55;
 
+            this.tabDashboard.Controls.Add(this.gridResults);
+            this.tabDashboard.Controls.Add(this.pnlStats);
+            this.tabDashboard.Controls.Add(this.pnlHeader);
+            this.tabDashboard.Text = "Dashboard";
+            this.tabDashboard.BackColor = System.Drawing.Color.White;
+            this.tabDashboard.Padding = new System.Windows.Forms.Padding(0);
+
+            this.pnlExplorerToolbar.Dock = System.Windows.Forms.DockStyle.Top;
+            this.pnlExplorerToolbar.Height = 56;
+            this.pnlExplorerToolbar.BackColor = System.Drawing.Color.White;
+
+            this.lblSearchHint.AutoSize = true;
+            this.lblSearchHint.Text = "جستجو (نام، نام‌خانوادگی، کدملی):";
+            this.lblSearchHint.Font = new System.Drawing.Font("Segoe UI", 9F);
+            this.lblSearchHint.ForeColor = System.Drawing.Color.FromArgb(71, 85, 105);
+            this.lblSearchHint.Location = new System.Drawing.Point(20, 18);
+
+            this.txtSearch.Location = new System.Drawing.Point(230, 14);
+            this.txtSearch.Size = new System.Drawing.Size(260, 26);
+            this.txtSearch.Font = new System.Drawing.Font("Segoe UI", 9.5F);
+            this.txtSearch.TextChanged += new System.EventHandler(this.txtSearch_TextChanged);
+
+            this.btnRefreshExplorer.Text = "⟳  بروزرسانی از دیتابیس";
+            this.btnRefreshExplorer.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnRefreshExplorer.BackColor = ColorAccentBlue;
+            this.btnRefreshExplorer.ForeColor = System.Drawing.Color.White;
+            this.btnRefreshExplorer.FlatAppearance.BorderSize = 0;
+            this.btnRefreshExplorer.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold);
+            this.btnRefreshExplorer.Size = new System.Drawing.Size(180, 30);
+            this.btnRefreshExplorer.Location = new System.Drawing.Point(510, 13);
+            this.btnRefreshExplorer.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnRefreshExplorer.Click += new System.EventHandler(this.btnRefreshExplorer_Click);
+
+            this.lblExplorerCount.AutoSize = true;
+            this.lblExplorerCount.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold);
+            this.lblExplorerCount.ForeColor = System.Drawing.Color.FromArgb(100, 116, 139);
+            this.lblExplorerCount.Text = "در حال بارگذاری...";
+            this.lblExplorerCount.Location = new System.Drawing.Point(710, 18);
+
+            this.pnlExplorerToolbar.Controls.Add(this.lblSearchHint);
+            this.pnlExplorerToolbar.Controls.Add(this.txtSearch);
+            this.pnlExplorerToolbar.Controls.Add(this.btnRefreshExplorer);
+            this.pnlExplorerToolbar.Controls.Add(this.lblExplorerCount);
+
+            this.gridExplorer.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.gridExplorer.BackgroundColor = System.Drawing.Color.White;
+            this.gridExplorer.BorderStyle = System.Windows.Forms.BorderStyle.None;
+            this.gridExplorer.AllowUserToAddRows = false;
+            this.gridExplorer.AllowUserToDeleteRows = false;
+            this.gridExplorer.ReadOnly = true;
+            this.gridExplorer.RowHeadersVisible = false;
+            this.gridExplorer.AutoGenerateColumns = false;
+            this.gridExplorer.SelectionMode = System.Windows.Forms.DataGridViewSelectionMode.FullRowSelect;
+            this.gridExplorer.ColumnHeadersDefaultCellStyle.BackColor = System.Drawing.Color.FromArgb(241, 245, 249);
+            this.gridExplorer.ColumnHeadersDefaultCellStyle.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold);
+            this.gridExplorer.ColumnHeadersHeight = 34;
+            this.gridExplorer.RowTemplate.Height = 28;
+            this.gridExplorer.EnableHeadersVisualStyles = false;
+            this.gridExplorer.AlternatingRowsDefaultCellStyle.BackColor = System.Drawing.Color.FromArgb(250, 250, 251);
+            this.gridExplorer.DefaultCellStyle.SelectionBackColor = System.Drawing.Color.FromArgb(219, 234, 254);
+            this.gridExplorer.DefaultCellStyle.SelectionForeColor = System.Drawing.Color.Black;
+
+            AddExplorerColumn("PerId", "شناسه", 70);
+            AddExplorerColumn("PerName", "نام", 90);
+            AddExplorerColumn("PerSurname", "نام‌خانوادگی", 130);
+            AddExplorerColumn("NationalCode", "کد ملی", 90);
+            AddExplorerColumn("SexCode", "جنسیت", 60);
+            AddExplorerColumn("BornDate", "تاریخ تولد", 90);
+            AddExplorerColumn("PerStatus", "وضعیت", 60);
+            AddExplorerColumn("PerEmail", "ایمیل", 190);
+            AddExplorerColumn("MobileNo", "موبایل", 100);
+            AddExplorerColumn("Phone", "تلفن", 90);
+            AddExplorerColumn("PerAddr", "آدرس", 150);
+            AddExplorerColumn("PerLName", "Latin Name", 90);
+            AddExplorerColumn("PerLSurname", "Latin Surname", 100);
+            AddExplorerColumn("UserPrincipalName", "یوزرنیم", 160);
+            AddExplorerColumn("CompanyId", "کد شرکت", 80);
+            AddExplorerColumn("PerContract", "نوع قرارداد", 130);
+
+            this.tabDataExplorer.Controls.Add(this.gridExplorer);
+            this.tabDataExplorer.Controls.Add(this.pnlExplorerToolbar);
+            this.tabDataExplorer.Text = "Data Explorer";
+            this.tabDataExplorer.BackColor = System.Drawing.Color.White;
+            this.tabDataExplorer.Padding = new System.Windows.Forms.Padding(0);
+
+            this.tabControlMain.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.tabControlMain.Font = new System.Drawing.Font("Segoe UI", 9.5F);
+            this.tabControlMain.Controls.Add(this.tabDashboard);
+            this.tabControlMain.Controls.Add(this.tabDataExplorer);
+
             this.statusStrip.BackColor = System.Drawing.Color.FromArgb(241, 245, 249);
             this.statusStrip.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
                 this.lblCurrentStatus, this.lblElapsed, this.lblThroughput });
@@ -182,9 +298,7 @@
             this.lblThroughput.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
 
             this.ClientSize = new System.Drawing.Size(1050, 660);
-            this.Controls.Add(this.gridResults);
-            this.Controls.Add(this.pnlStats);
-            this.Controls.Add(this.pnlHeader);
+            this.Controls.Add(this.tabControlMain);
             this.Controls.Add(this.statusStrip);
             this.Font = new System.Drawing.Font("Segoe UI", 9F);
             this.RightToLeft = System.Windows.Forms.RightToLeft.No;
@@ -194,16 +308,30 @@
             this.Load += new System.EventHandler(this.Form1_Load);
 
             ((System.ComponentModel.ISupportInitialize)(this.gridResults)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.gridExplorer)).EndInit();
             this.pnlHeader.ResumeLayout(false);
-            this.pnlHeader.PerformLayout();
             this.pnlStats.ResumeLayout(false);
+            this.pnlExplorerToolbar.ResumeLayout(false);
+            this.pnlExplorerToolbar.PerformLayout();
             this.statusStrip.ResumeLayout(false);
             this.statusStrip.PerformLayout();
             this.ResumeLayout(false);
             this.PerformLayout();
         }
 
-        private void CreateStatCard(string caption, System.Drawing.Color accent, int x, out System.Windows.Forms.Label valueLabel)
+        private void AddExplorerColumn(string propertyName, string header, int width)
+        {
+            var col = new System.Windows.Forms.DataGridViewTextBoxColumn
+            {
+                Name = "colExp" + propertyName,
+                DataPropertyName = propertyName,
+                HeaderText = header,
+                Width = width
+            };
+            this.gridExplorer.Columns.Add(col);
+        }
+
+        private void CreateStatCard(System.Windows.Forms.Panel container, string caption, System.Drawing.Color accent, int x, out System.Windows.Forms.Label valueLabel)
         {
             var card = new System.Windows.Forms.Panel
             {
@@ -242,7 +370,7 @@
             card.Controls.Add(captionLabel);
             card.Controls.Add(accentStrip);
 
-            this.pnlStats.Controls.Add(card);
+            container.Controls.Add(card);
         }
     }
 }

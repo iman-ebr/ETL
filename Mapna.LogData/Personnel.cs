@@ -17,7 +17,7 @@ public class Personnel
     public string? BornDate { get; set; }
     public string NationalCode { get; set; } = string.Empty;
     public string? UserPrincipalName { get; set; }
-    public int? CompanyId { get; set; }
+    public string? CompanyId { get; set; }
     public string? PerContract { get; set; }
     public DateTime LastUpdatedUtc { get; set; }
 }
