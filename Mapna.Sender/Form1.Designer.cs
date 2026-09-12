@@ -276,8 +276,14 @@
             AddExplorerColumn("CompanyId", "کد شرکت", 80);
             AddExplorerColumn("PerContract", "نوع قرارداد", 130);
 
+            this.gridExplorer.ShowCellToolTips = true;
+            this.gridExplorer.CellDoubleClick += new System.Windows.Forms.DataGridViewCellEventHandler(this.gridExplorer_CellDoubleClick);
+            this.gridExplorer.CellToolTipTextNeeded += new System.Windows.Forms.DataGridViewCellToolTipTextNeededEventHandler(this.gridExplorer_CellToolTipTextNeeded);
+            this.gridExplorer.CellFormatting += new System.Windows.Forms.DataGridViewCellFormattingEventHandler(this.gridExplorer_CellFormatting);
+
             this.tabDataExplorer.Controls.Add(this.gridExplorer);
             this.tabDataExplorer.Controls.Add(this.pnlExplorerToolbar);
+
             this.tabDataExplorer.Text = "Data Explorer";
             this.tabDataExplorer.BackColor = System.Drawing.Color.White;
             this.tabDataExplorer.Padding = new System.Windows.Forms.Padding(0);

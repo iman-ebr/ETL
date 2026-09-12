@@ -163,30 +163,59 @@ public partial class Form1 : Form
         var list = filtered.ToList();
         gridExplorer.DataSource = new BindingList<PersonnelRecord>(list);
 
-        HighlightInvalidRows();
+        // HighlightInvalidRows();
 
         var invalidCount = list.Count(r => !Validator.Validate(r).IsValid);
         lblExplorerCount.Text = $"{list.Count} The record has been displayed  —  {invalidCount} Invalid record";
 
 
     }
-
-    private void HighlightInvalidRows()
+    private void gridExplorer_CellFormatting(object? sender, DataGridViewCellFormattingEventArgs e)
     {
-        foreach (DataGridViewRow row in gridExplorer.Rows)
-        {
-            if (row.DataBoundItem is not PersonnelRecord record)
-                continue;
+        if (e.RowIndex < 0) return;
+        if (gridExplorer.Rows[e.RowIndex].DataBoundItem is not PersonnelRecord record) return;
 
-            var isValid = Validator.Validate(record).IsValid;
-            row.DefaultCellStyle.BackColor = isValid
-                ? gridExplorer.Rows.GetRowState(row.Index).HasFlag(DataGridViewElementStates.None)
-                    ? Color.Empty
-                    : Color.Empty
-                : Color.FromArgb(255, 235, 238);
+        if (!Validator.Validate(record).IsValid)
+        {
+            e.CellStyle!.BackColor = Color.FromArgb(255, 235, 238);
         }
     }
 
+    // private void HighlightInvalidRows()
+    // {
+    //     foreach (DataGridViewRow row in gridExplorer.Rows)
+    //     {
+    //         if (row.DataBoundItem is not PersonnelRecord record)
+    //             continue;
+    //
+    //         var isValid = Validator.Validate(record).IsValid;
+    //         row.DefaultCellStyle.BackColor = isValid
+    //             ? gridExplorer.Rows.GetRowState(row.Index).HasFlag(DataGridViewElementStates.None)
+    //                 ? Color.Empty
+    //                 : Color.Empty
+    //             : Color.FromArgb(255, 235, 238);
+    //     }
+    // }
+
+    private void gridExplorer_CellDoubleClick(object sender, DataGridViewCellEventArgs e)
+    {
+        if (e.RowIndex < 0) return;
+        if (gridExplorer.Rows[e.RowIndex].DataBoundItem is not PersonnelRecord record) return;
+
+        using var detailForm = new PersonDetailForm(record,Validator);
+        detailForm.ShowDialog(this);
+    }
+
+    private void gridExplorer_CellToolTipTextNeeded(object sender, DataGridViewCellToolTipTextNeededEventArgs e)
+    {
+        if (e.RowIndex < 0) return;
+        if (gridExplorer.Rows[e.RowIndex].DataBoundItem is not PersonnelRecord record) return;
+
+        var result = Validator.Validate(record);
+        e.ToolTipText = result.IsValid
+            ? "This record is valid"
+            : "Reason for rejection:\n" + string.Join("\n", result.Errors.Select(x => "• " + x.ErrorMessage));
+    }
 
     private void UpdateUi(SyncProgress progress)
     {
