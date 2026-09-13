@@ -20,7 +20,7 @@ public class ApiKeyAuthenticationHandler : AuthenticationHandler<ApiKeyAuthentic
     {
         _apiKeysByClientName =
             configuration.GetSection("Security:ApiKeys").Get<Dictionary<string, string>>()
-            ?? new Dictionary<string, string>();
+            ?? [];
     }
 
     protected override Task<AuthenticateResult> HandleAuthenticateAsync()
