@@ -24,9 +24,11 @@ builder.Services.AddSwaggerGen(options =>
     options.AddSecurityRequirement(document =>
         new OpenApiSecurityRequirement
         {
-            [new OpenApiSecuritySchemeReference(
+            [
+                new OpenApiSecuritySchemeReference(
                 ApiKeyAuthenticationOptions.DefaultScheme,
-                document)] = []
+                document)
+            ] = []
         });
 });
 

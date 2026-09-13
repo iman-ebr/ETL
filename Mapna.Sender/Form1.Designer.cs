@@ -157,7 +157,7 @@
 
             this.pnlStats.BackColor = ColorStatsBg;
             this.pnlStats.Dock = System.Windows.Forms.DockStyle.Top;
-            this.pnlStats.Height = 92;
+            this.pnlStats.Height = 100;
 
             CreateStatCard(this.pnlStats, "TOTAL RECORDS", ColorAccentBlue, 24, out this.lblValueTotal);
             CreateStatCard(this.pnlStats, "SENT", ColorAccentGreen, 270, out this.lblValueSent);
@@ -341,8 +341,8 @@
         {
             var card = new System.Windows.Forms.Panel
             {
-                Location = new System.Drawing.Point(x, 14),
-                Size = new System.Drawing.Size(230, 64),
+                Location = new System.Drawing.Point(x, 10),
+                Size = new System.Drawing.Size(230, 76),
                 BackColor = System.Drawing.Color.White,
                 BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle
             };
@@ -356,20 +356,24 @@
 
             valueLabel = new System.Windows.Forms.Label
             {
-                AutoSize = true,
-                Font = new System.Drawing.Font("Segoe UI", 19F, System.Drawing.FontStyle.Bold),
+                AutoSize = false,
+                Font = new System.Drawing.Font("Segoe UI", 17F, System.Drawing.FontStyle.Bold),
                 ForeColor = System.Drawing.Color.FromArgb(30, 41, 59),
                 Text = "0",
-                Location = new System.Drawing.Point(16, 6)
+                TextAlign = System.Drawing.ContentAlignment.MiddleLeft,
+                Location = new System.Drawing.Point(16, 4),
+                Size = new System.Drawing.Size(200, 38)
             };
 
             var captionLabel = new System.Windows.Forms.Label
             {
-                AutoSize = true,
+                AutoSize = false,
                 Font = new System.Drawing.Font("Segoe UI", 8F),
                 ForeColor = System.Drawing.Color.FromArgb(100, 116, 139),
                 Text = caption,
-                Location = new System.Drawing.Point(17, 40)
+                TextAlign = System.Drawing.ContentAlignment.TopLeft,
+                Location = new System.Drawing.Point(17, 46),
+                Size = new System.Drawing.Size(200, 26)
             };
 
             card.Controls.Add(valueLabel);
