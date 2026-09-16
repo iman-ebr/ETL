@@ -2,15 +2,17 @@
 using Microsoft.Extensions.DependencyInjection;
 using Polly;
 using Polly.Extensions.Http;
+using System.Diagnostics;
 
 namespace Mapna.Sender;
 
 public class SyncOrchestrator
 {
     private readonly AppSettings _settings;
-    private const int saveBatchSize = 200;
     private const string ReceiverApiClientName = "ReceiverApi";
 
+    private const int CheckpointBatchSize = 20;
+    private static readonly TimeSpan CheckpointInterval = TimeSpan.FromSeconds(3);
 
     public SyncOrchestrator(AppSettings settings)
     {
@@ -25,8 +27,6 @@ public class SyncOrchestrator
         var lastSentByPerId = await SendDecisionService.LoadLastSentAsync(logdb, cancellationToken);
         var decisionService = new SendDecisionService(lastSentByPerId);
 
-        //using var httpclient = new HttpClient();
-        //httpclient.BaseAddress = new Uri(_settings.ReceiverApiBaseUrl);
         using var serviceProvider = BuildHttpServices();
         var httpClientFactory = serviceProvider.GetRequiredService<IHttpClientFactory>();
         using var httpclient = httpClientFactory.CreateClient(ReceiverApiClientName);
@@ -37,21 +37,19 @@ public class SyncOrchestrator
             httpclient.DefaultRequestHeaders.Add("X-Api-Key", _settings.ReceiverApiKey);
         }
 
-
         var sender = new RecordSender(httpclient, logdb);
-        var report = new SyncProgress { Total = records.Count };
-        var unsavedCount = 0;
         var totalCount = records.Count;
         int processedCount = 0, sentCount = 0, duplicateCount = 0, failedCount = 0;
-        
+
+        var unsavedCount = 0;
+        var checkpointStopwatch = Stopwatch.StartNew();
+
         try
         {
             foreach (var record in records)
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                report.CurrentPerson = $"{record.PerName} {record.PerSurname}";
-                report.CurrentPerId = record.PerId;
                 SendStatus status;
                 string? reason;
                 try
@@ -66,33 +64,19 @@ public class SyncOrchestrator
                 catch (Exception ex)
                 {
                     status = SendStatus.SendFailed;
-                    reason = $"Unexpected error while proccessing data: {ex.Message}";
+                    reason = $"Unexpected error while processing data: {ex.Message}";
                 }
 
-                //report.Processed++;
-                //// report.CurrentPerId = record.PerId;
-                //report.LastStatus = status;
-                //report.LastReason = reason;
+                unsavedCount++;
 
-                //switch (status)
-                //{
-                //    case SendStatus.Sent:
-                //        report.SentCount++;
-                //        break;
-                //    case SendStatus.Duplicate:
-                //        report.DuplicateCount++;
-                //        break;
-                //    case SendStatus.ValidationFailed:
-                //    case SendStatus.SendFailed:
-                //        report.FailedCount++;
-                //        break;
-                //}
+                var timeThresholdReached = checkpointStopwatch.Elapsed >= CheckpointInterval;
+                if (unsavedCount >= CheckpointBatchSize || timeThresholdReached)
+                {
+                    await logdb.SaveChangesAsync(CancellationToken.None);
+                    unsavedCount = 0;
+                    checkpointStopwatch.Restart();
+                }
 
-                //progress.Report(report);
-                //unsavedCount++;
-                //if (unsavedCount < saveBatchSize) continue;
-                //await logdb.SaveChangesAsync(CancellationToken.None);
-                //unsavedCount = 0;
                 processedCount++;
                 switch (status)
                 {
@@ -114,35 +98,41 @@ public class SyncOrchestrator
                     LastStatus = status,
                     LastReason = reason
                 });
-
-                unsavedCount++;
-                if (unsavedCount < saveBatchSize) continue;
-                await logdb.SaveChangesAsync(CancellationToken.None);
-                unsavedCount = 0;
             }
         }
         finally
         {
             if (logdb.ChangeTracker.HasChanges())
+            {
                 await logdb.SaveChangesAsync(CancellationToken.None);
+            }
         }
     }
+
     private static ServiceProvider BuildHttpServices()
     {
         var services = new ServiceCollection();
 
         services.AddHttpClient(ReceiverApiClientName)
-            .AddPolicyHandler(GetRetryPolicy());
+            .AddPolicyHandler(GetResiliencePolicy());
 
         return services.BuildServiceProvider();
     }
 
-    private static IAsyncPolicy<HttpResponseMessage> GetRetryPolicy()
+    private static IAsyncPolicy<HttpResponseMessage> GetResiliencePolicy()
     {
-        return HttpPolicyExtensions
+        var retryPolicy = HttpPolicyExtensions
             .HandleTransientHttpError()
             .WaitAndRetryAsync(
                 retryCount: 3,
                 sleepDurationProvider: attempt => TimeSpan.FromSeconds(Math.Pow(2, attempt)));
+
+        var circuitBreakerPolicy = HttpPolicyExtensions
+            .HandleTransientHttpError()
+            .CircuitBreakerAsync(
+                handledEventsAllowedBeforeBreaking: 5,
+                durationOfBreak: TimeSpan.FromSeconds(30));
+
+        return Policy.WrapAsync(retryPolicy, circuitBreakerPolicy);
     }
 }

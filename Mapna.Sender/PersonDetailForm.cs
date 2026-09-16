@@ -20,7 +20,7 @@ public class PersonDetailForm : Form
 
     private void BuildUi(PersonnelRecord record, bool isValid, List<string> errorMessage)
     {
-        Text = "Personnel Detail";
+        Text = "جزئیات پرسنل";
         StartPosition = FormStartPosition.CenterParent;
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MaximizeBox = false;
@@ -43,7 +43,7 @@ public class PersonDetailForm : Form
 
         var lblSubId = new Label
         {
-            Text = $"Personnel Id : {record.PerId}   |   National No: {record.NationalCode}",
+            Text = $"آیدی پرسنل : {record.PerId}   |   کد ملی: {record.NationalCode}",
             Font = new Font("Segoe UI", 9F),
             ForeColor = Color.FromArgb(148, 163, 184),
             AutoSize = true,
@@ -62,7 +62,7 @@ public class PersonDetailForm : Form
 
         var lblStatus = new Label
         {
-            Text = isValid ? "✔  This record is valid and ready to be sent" : "✘  This record will be rejected — see the reasons below:",
+            Text = isValid ? "✔  این رکورد معتبر و آماده ارسال است." : "✘  این رکورد رد خواهد شد — دلایل آن را در زیر ببینید.:",
             Font = new Font("Segoe UI", 9.5F, FontStyle.Bold),
             ForeColor = isValid ? ColorValidText : ColorInvalidText,
             AutoSize = true,
@@ -102,22 +102,22 @@ public class PersonDetailForm : Form
 
         var fields = new (string Label, string? Value)[]
         {
-            ("Name", record.PerName),
-            ("SurName", record.PerSurname),
-            ("Latin Name", record.PerLName),
-            ("Latin SurName", record.PerLSurname),
-            ("Gender", record.SexCode == "M" ? "Male" : record.SexCode == "F" ? "Female" : record.SexCode),
-            ("Birth Date", record.BornDate),
-            ("National No", record.NationalCode),
-            ("Status", record.PerStatus == 1 ? "Active" : "DeActive"),
-            ("Email", record.PerEmail),
-            ("Mobile", record.MobileNo),
-            ("Phone", record.Phone),
-            ("Address", record.PerAddr),
-            ("UserName", record.UserPrincipalName),
-            ("Company Id", record.CompanyId?.ToString()),
-            ("Contract", record.PerContract),
-            ("Contract", record.PerContract),
+            ("نام", record.PerName),
+            ("نام خانوادگی", record.PerSurname),
+            ("نام به لاتین", record.PerLName),
+            ("نام خانوادگی به لاتین", record.PerLSurname),
+            ("حنسیت", record.SexCode == "M" ? "Male" : record.SexCode == "F" ? "Female" : record.SexCode),
+            ("تاریخ تولد", record.BornDate),
+            ("کد ملی", record.NationalCode),
+            ("وضعیت", record.PerStatus == 1 ? "فعال" : "غیرفعال"),
+            ("ایمیل", record.PerEmail),
+            ("موبایل", record.MobileNo),
+            ("تلفن", record.Phone),
+            ("آدرس", record.PerAddr),
+            ("نام کاربری", record.UserPrincipalName),
+            ("شناسه شرکت", record.CompanyId?.ToString()),
+            ("قرارداد", record.PerContract),
+            //("Contract", record.PerContract),
         };
 
         var y2 = 0;
@@ -148,7 +148,7 @@ public class PersonDetailForm : Form
         var footer = new Panel { Dock = DockStyle.Bottom, Height = 52, BackColor = Color.FromArgb(248, 250, 252) };
         var btnCopy = new Button
         {
-            Text = "Copy Info",
+            Text = "کئی اطلاعات",
             FlatStyle = FlatStyle.Flat,
             BackColor = Color.White,
             ForeColor = Color.FromArgb(51, 65, 85),
@@ -161,7 +161,7 @@ public class PersonDetailForm : Form
 
         var btnClose = new Button
         {
-            Text = "Close",
+            Text = "بستن",
             FlatStyle = FlatStyle.Flat,
             BackColor = Color.FromArgb(37, 99, 235),
             ForeColor = Color.White,
@@ -187,10 +187,10 @@ public class PersonDetailForm : Form
     {
         var text = $"""
                 {record.PerName} {record.PerSurname} (ID: {record.PerId})
-                National No: {record.NationalCode}
-                Email: {record.PerEmail}
-                Mobile: {record.MobileNo}
-                Validation Status: {(isValid ? "Valid" : "Invalid — " + string.Join(" | ", errors))}
+                کدملی: {record.NationalCode}
+                ایمیل: {record.PerEmail}
+                موبایل: {record.MobileNo}
+                وضعیت اعتبارسنجی: {(isValid ? "معتبر" : "نامعتبر — " + string.Join(" | ", errors))}
                 """;
         Clipboard.SetText(text);
     }

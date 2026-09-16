@@ -14,8 +14,7 @@ public partial class Form1 : Form
 
     private static readonly PersonnelValidator Validator = new();
     private List<PersonnelRecord> _explorerAllRecords = [];
-
-
+    private readonly List<RecordResult> _currentRunResults = [];
 
     public Form1()
     {
@@ -32,8 +31,8 @@ public partial class Form1 : Form
         catch (Exception ex)
         {
             MessageBox.Show(
-                $"Failed to load configuration file:\n{ex.Message}",
-                "Configuration Error",
+                $"بارگذاری فایل پیکربندی با خطا مواجه شد:\n{ex.Message}",
+                "خطای پیکربندی",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Error);
 
@@ -47,9 +46,10 @@ public partial class Form1 : Form
             return;
 
         gridResults.Rows.Clear();
+        _currentRunResults.Clear();
         progressBar.Value = 0;
-        lblProgressPercent.Text = "Preparing...";
-        lblCurrentStatus.Text = "Running";
+        lblProgressPercent.Text = "در حال آماده‌سازی...";
+        lblCurrentStatus.Text = "در حال اجرا";
         ResetStatCards();
         SetControlsRunningState(isRunning: true);
 
@@ -64,24 +64,24 @@ public partial class Form1 : Form
             var orchestrator = new SyncOrchestrator(_settings);
             await orchestrator.RunAsync(progress, _cts.Token);
 
-            lblProgressPercent.Text = "Completed successfully";
-            lblCurrentStatus.Text = "Completed";
+            lblProgressPercent.Text = "عملیات با موفقیت تکمیل شد";
+            lblCurrentStatus.Text = "تکمیل شد";
         }
         catch (OperationCanceledException)
         {
-            lblProgressPercent.Text = "Cancelled by user";
-            lblCurrentStatus.Text = "Cancelled";
+            lblProgressPercent.Text = "عملیات توسط کاربر لغو شد";
+            lblCurrentStatus.Text = "لغو شد";
         }
         catch (Exception ex)
         {
             MessageBox.Show(
-                $"An unexpected error occurred while syncing:\n{ex.Message}",
-                "Error",
+                $"هنگام همگام‌سازی خطای غیرمنتظره‌ای رخ داد:\n{ex.Message}",
+                "خطا",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Error);
 
-            lblProgressPercent.Text = "Stopped due to an error";
-            lblCurrentStatus.Text = "Error";
+            lblProgressPercent.Text = "به دلیل بروز خطا متوقف شد";
+            lblCurrentStatus.Text = "خطا";
         }
         finally
         {
@@ -100,23 +100,22 @@ public partial class Form1 : Form
     {
         _cts?.Cancel();
         btnCancel.Enabled = false;
-        lblProgressPercent.Text = "Cancelling...";
-        lblCurrentStatus.Text = "Cancelling";
+        lblProgressPercent.Text = "در حال لغو...";
+        lblCurrentStatus.Text = "در حال لغو";
     }
 
-
-    private async void btnRefreshExplorer_Click(object? sender,EventArgs e)
+    private async void btnRefreshExplorer_Click(object? sender, EventArgs e)
     {
         await LoadExplorerDataAsync();
     }
 
     private async Task LoadExplorerDataAsync()
     {
-        if(_settings is null) 
+        if (_settings is null)
             return;
 
         btnRefreshExplorer.Enabled = false;
-        lblExplorerCount.Text = "Loading...";
+        lblExplorerCount.Text = "در حال بارگذاری...";
 
         try
         {
@@ -125,15 +124,13 @@ public partial class Form1 : Form
 
             _explorerAllRecords = records.ToList();
             ApplyExplorerFilter(txtSearch.Text);
-
-
         }
         catch (Exception ex)
         {
-            lblExplorerCount.Text = "Error while proccessing data";
+            lblExplorerCount.Text = "خطا در پردازش داده‌ها";
             MessageBox.Show(
-                $"There was an error reading data from the source database:\n{ex.Message}",
-                "Data Explorer",
+                $"هنگام خواندن داده‌ها از پایگاه داده مبدأ خطایی رخ داد:\n{ex.Message}",
+                "کاوش داده‌ها",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Warning);
         }
@@ -163,13 +160,10 @@ public partial class Form1 : Form
         var list = filtered.ToList();
         gridExplorer.DataSource = new BindingList<PersonnelRecord>(list);
 
-        // HighlightInvalidRows();
-
         var invalidCount = list.Count(r => !Validator.Validate(r).IsValid);
-        lblExplorerCount.Text = $"{list.Count} The record has been displayed  —  {invalidCount} Invalid record";
-
-
+        lblExplorerCount.Text = $"{list.Count} رکورد نمایش داده شد  —  {invalidCount} رکورد نامعتبر";
     }
+
     private void gridExplorer_CellFormatting(object? sender, DataGridViewCellFormattingEventArgs e)
     {
         if (e.RowIndex < 0) return;
@@ -181,28 +175,12 @@ public partial class Form1 : Form
         }
     }
 
-    // private void HighlightInvalidRows()
-    // {
-    //     foreach (DataGridViewRow row in gridExplorer.Rows)
-    //     {
-    //         if (row.DataBoundItem is not PersonnelRecord record)
-    //             continue;
-    //
-    //         var isValid = Validator.Validate(record).IsValid;
-    //         row.DefaultCellStyle.BackColor = isValid
-    //             ? gridExplorer.Rows.GetRowState(row.Index).HasFlag(DataGridViewElementStates.None)
-    //                 ? Color.Empty
-    //                 : Color.Empty
-    //             : Color.FromArgb(255, 235, 238);
-    //     }
-    // }
-
     private void gridExplorer_CellDoubleClick(object sender, DataGridViewCellEventArgs e)
     {
         if (e.RowIndex < 0) return;
         if (gridExplorer.Rows[e.RowIndex].DataBoundItem is not PersonnelRecord record) return;
 
-        using var detailForm = new PersonDetailForm(record,Validator);
+        using var detailForm = new PersonDetailForm(record, Validator);
         detailForm.ShowDialog(this);
     }
 
@@ -213,8 +191,18 @@ public partial class Form1 : Form
 
         var result = Validator.Validate(record);
         e.ToolTipText = result.IsValid
-            ? "This record is valid"
-            : "Reason for rejection:\n" + string.Join("\n", result.Errors.Select(x => "• " + x.ErrorMessage));
+            ? "این رکورد معتبر است"
+            : "دلیل رد شدن:\n" + string.Join("\n", result.Errors.Select(x => "• " + x.ErrorMessage));
+    }
+
+    private void ShowResultsDetail(Func<RecordResult, bool>? predicate, string title)
+    {
+        var filtered = predicate is null
+            ? _currentRunResults
+            : _currentRunResults.Where(predicate).ToList();
+
+        using var dialog = new ResultDetailForm(title, filtered);
+        dialog.ShowDialog(this);
     }
 
     private void UpdateUi(SyncProgress progress)
@@ -224,7 +212,7 @@ public partial class Form1 : Form
             : (int)((double)progress.Processed / progress.Total * 100);
 
         progressBar.Value = Math.Min(percent, 100);
-        lblProgressPercent.Text = $"{percent}%  —  {progress.Processed} of {progress.Total}"
+        lblProgressPercent.Text = $"{percent}%  —  {progress.Processed} از {progress.Total}"
                                   + (string.IsNullOrEmpty(progress.CurrentPerson) ? "" : $"  ({progress.CurrentPerson})");
 
         lblValueTotal.Text = progress.Total.ToString();
@@ -236,17 +224,16 @@ public partial class Form1 : Form
         AddOrUpdateRow(progress);
     }
 
-
     private void UpdateElapsedLabel()
     {
-        lblElapsed.Text = $"  |  Elapsed: {_stopwatch.Elapsed:hh\\:mm\\:ss}";
+        lblElapsed.Text = $"  |  زمان سپری‌شده: {_stopwatch.Elapsed:hh\\:mm\\:ss}";
     }
 
     private void UpdateThroughputLabel(int processed)
     {
         var seconds = _stopwatch.Elapsed.TotalSeconds;
         var rate = seconds > 0.5 ? processed / seconds : 0;
-        lblThroughput.Text = $"  |  {rate:0.#} records/sec";
+        lblThroughput.Text = $"  |  {rate:0.#} رکورد/ثانیه";
     }
 
     private void ResetStatCards()
@@ -270,17 +257,25 @@ public partial class Form1 : Form
         row.DefaultCellStyle.BackColor = GetRowColor(progress);
 
         gridResults.FirstDisplayedScrollingRowIndex = gridResults.Rows.Count - 1;
+
+        _currentRunResults.Add(new RecordResult
+        {
+            PerId = progress.CurrentPerId,
+            PersonName = progress.CurrentPerson,
+            Status = progress.LastStatus,
+            Reason = progress.LastReason
+        });
     }
 
     private static string GetStatusText(SyncProgress progress)
     {
         return progress.LastStatus switch
         {
-            SendStatus.Sent => "Sent",
-            SendStatus.Duplicate => "Duplicate — no change",
-            SendStatus.ValidationFailed => "Invalid",
-            SendStatus.SendFailed => "Send failed",
-            _ => "Unknown"
+            SendStatus.Sent => "ارسال شد",
+            SendStatus.Duplicate => "تکراری — بدون تغییر",
+            SendStatus.ValidationFailed => "نامعتبر",
+            SendStatus.SendFailed => "ارسال ناموفق",
+            _ => "نامشخص"
         };
     }
 
@@ -301,5 +296,4 @@ public partial class Form1 : Form
         btnStart.Enabled = !isRunning;
         btnCancel.Enabled = isRunning;
     }
-        
 }

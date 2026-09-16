@@ -115,7 +115,7 @@
             this.lblSubtitle.Text = "Source ERP  →  Receiver API";
             this.lblSubtitle.Location = new System.Drawing.Point(27, 50);
 
-            this.btnStart.Text = "▶  Start Sync";
+            this.btnStart.Text = "▶  شروع";
             this.btnStart.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnStart.BackColor = ColorAccentGreen;
             this.btnStart.ForeColor = System.Drawing.Color.White;
@@ -126,7 +126,7 @@
             this.btnStart.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnStart.Click += new System.EventHandler(this.btnStart_Click);
 
-            this.btnCancel.Text = "Cancel";
+            this.btnCancel.Text = "کنسل";
             this.btnCancel.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnCancel.BackColor = ColorAccentRed;
             this.btnCancel.ForeColor = System.Drawing.Color.White;
@@ -159,10 +159,11 @@
             this.pnlStats.Dock = System.Windows.Forms.DockStyle.Top;
             this.pnlStats.Height = 100;
 
-            CreateStatCard(this.pnlStats, "TOTAL RECORDS", ColorAccentBlue, 24, out this.lblValueTotal);
-            CreateStatCard(this.pnlStats, "SENT", ColorAccentGreen, 270, out this.lblValueSent);
-            CreateStatCard(this.pnlStats, "DUPLICATE (SKIPPED)", ColorAccentGray, 516, out this.lblValueDuplicate);
-            CreateStatCard(this.pnlStats, "FAILED", ColorAccentRed, 762, out this.lblValueFailed);
+            CreateStatCard(this.pnlStats, "کل رکوردها", ColorAccentBlue, 24, null, out this.lblValueTotal);
+            CreateStatCard(this.pnlStats, "فرستاده شده", ColorAccentGreen, 270, r => r.Status == Mapna.LogData.SendStatus.Sent, out this.lblValueSent);
+            CreateStatCard(this.pnlStats, "تکراری", ColorAccentGray, 516, r => r.Status == Mapna.LogData.SendStatus.Duplicate, out this.lblValueDuplicate);
+            CreateStatCard(this.pnlStats, "ناموفق", ColorAccentRed, 762, r => r.Status == Mapna.LogData.SendStatus.ValidationFailed || r.Status == Mapna.LogData.SendStatus.SendFailed, out this.lblValueFailed);
+
 
             this.gridResults.Dock = System.Windows.Forms.DockStyle.Fill;
             this.gridResults.BackgroundColor = System.Drawing.Color.White;
@@ -187,20 +188,20 @@
             this.colPerId.HeaderText = "ID";
             this.colPerId.Name = "colPerId";
             this.colPerId.FillWeight = 15;
-            this.colName.HeaderText = "Name";
+            this.colName.HeaderText = "نام";
             this.colName.Name = "colName";
             this.colName.FillWeight = 30;
-            this.colStatus.HeaderText = "Status";
+            this.colStatus.HeaderText = "وضعیت";
             this.colStatus.Name = "colStatus";
             this.colStatus.FillWeight = 20;
-            this.colDetail.HeaderText = "Details";
+            this.colDetail.HeaderText = "جزئیات";
             this.colDetail.Name = "colDetail";
             this.colDetail.FillWeight = 55;
 
             this.tabDashboard.Controls.Add(this.gridResults);
             this.tabDashboard.Controls.Add(this.pnlStats);
             this.tabDashboard.Controls.Add(this.pnlHeader);
-            this.tabDashboard.Text = "Dashboard";
+            this.tabDashboard.Text = "داشبورد";
             this.tabDashboard.BackColor = System.Drawing.Color.White;
             this.tabDashboard.Padding = new System.Windows.Forms.Padding(0);
 
@@ -284,7 +285,7 @@
             this.tabDataExplorer.Controls.Add(this.gridExplorer);
             this.tabDataExplorer.Controls.Add(this.pnlExplorerToolbar);
 
-            this.tabDataExplorer.Text = "Data Explorer";
+            this.tabDataExplorer.Text = "بررسی داده‌ها";
             this.tabDataExplorer.BackColor = System.Drawing.Color.White;
             this.tabDataExplorer.Padding = new System.Windows.Forms.Padding(0);
 
@@ -337,14 +338,15 @@
             this.gridExplorer.Columns.Add(col);
         }
 
-        private void CreateStatCard(System.Windows.Forms.Panel container, string caption, System.Drawing.Color accent, int x, out System.Windows.Forms.Label valueLabel)
+        private void CreateStatCard(System.Windows.Forms.Panel container, string caption, System.Drawing.Color accent, int x, Func<RecordResult, bool>? filterPredicate, out System.Windows.Forms.Label valueLabel)
         {
             var card = new System.Windows.Forms.Panel
             {
                 Location = new System.Drawing.Point(x, 10),
                 Size = new System.Drawing.Size(230, 76),
                 BackColor = System.Drawing.Color.White,
-                BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle
+                BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle,
+                Cursor = System.Windows.Forms.Cursors.Hand
             };
 
             var accentStrip = new System.Windows.Forms.Panel
@@ -362,7 +364,8 @@
                 Text = "0",
                 TextAlign = System.Drawing.ContentAlignment.MiddleLeft,
                 Location = new System.Drawing.Point(16, 4),
-                Size = new System.Drawing.Size(200, 38)
+                Size = new System.Drawing.Size(200, 38),
+                Cursor = System.Windows.Forms.Cursors.Hand
             };
 
             var captionLabel = new System.Windows.Forms.Label
@@ -373,8 +376,15 @@
                 Text = caption,
                 TextAlign = System.Drawing.ContentAlignment.TopLeft,
                 Location = new System.Drawing.Point(17, 46),
-                Size = new System.Drawing.Size(200, 26)
+                Size = new System.Drawing.Size(200, 26),
+                Cursor = System.Windows.Forms.Cursors.Hand
             };
+
+            System.EventHandler handler = (s, e) => this.ShowResultsDetail(filterPredicate, caption);
+            card.Click += handler;
+            valueLabel.Click += handler;
+            captionLabel.Click += handler;
+            accentStrip.Click += handler;
 
             card.Controls.Add(valueLabel);
             card.Controls.Add(captionLabel);
