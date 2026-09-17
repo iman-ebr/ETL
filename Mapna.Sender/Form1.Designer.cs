@@ -11,7 +11,7 @@
             base.Dispose(disposing);
         }
 
-        private System.Windows.Forms.TabControl tabControlMain;
+        private Mapna.Sender.ModernTabControl tabControlMain;
         private System.Windows.Forms.TabPage tabDashboard;
         private System.Windows.Forms.TabPage tabDataExplorer;
 
@@ -59,7 +59,7 @@
 
         private void InitializeComponent()
         {
-            this.tabControlMain = new System.Windows.Forms.TabControl();
+            this.tabControlMain = new Mapna.Sender.ModernTabControl();
             this.tabDashboard = new System.Windows.Forms.TabPage();
             this.tabDataExplorer = new System.Windows.Forms.TabPage();
 
@@ -157,12 +157,12 @@
 
             this.pnlStats.BackColor = ColorStatsBg;
             this.pnlStats.Dock = System.Windows.Forms.DockStyle.Top;
-            this.pnlStats.Height = 100;
+            this.pnlStats.Height = 118;
 
-            CreateStatCard(this.pnlStats, "کل رکوردها", ColorAccentBlue, 24, null, out this.lblValueTotal);
-            CreateStatCard(this.pnlStats, "فرستاده شده", ColorAccentGreen, 270, r => r.Status == Mapna.LogData.SendStatus.Sent, out this.lblValueSent);
-            CreateStatCard(this.pnlStats, "تکراری", ColorAccentGray, 516, r => r.Status == Mapna.LogData.SendStatus.Duplicate, out this.lblValueDuplicate);
-            CreateStatCard(this.pnlStats, "ناموفق", ColorAccentRed, 762, r => r.Status == Mapna.LogData.SendStatus.ValidationFailed || r.Status == Mapna.LogData.SendStatus.SendFailed, out this.lblValueFailed);
+            CreateStatCard(this.pnlStats, "کل رکوردها", "کلیک برای مشاهده همه", ColorAccentBlue, 24, null, out this.lblValueTotal);
+            CreateStatCard(this.pnlStats, "فرستاده شده", "کلیک برای مشاهده جزئیات", ColorAccentGreen, 270, r => r.Status == Mapna.LogData.SendStatus.Sent, out this.lblValueSent);
+            CreateStatCard(this.pnlStats, "تکراری", "کلیک برای مشاهده جزئیات", ColorAccentGray, 516, r => r.Status == Mapna.LogData.SendStatus.Duplicate, out this.lblValueDuplicate);
+            CreateStatCard(this.pnlStats, "ناموفق", "کلیک برای مشاهده دلیل خطا", ColorAccentRed, 762, r => r.Status == Mapna.LogData.SendStatus.ValidationFailed || r.Status == Mapna.LogData.SendStatus.SendFailed, out this.lblValueFailed);
 
 
             this.gridResults.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -208,6 +208,11 @@
             this.pnlExplorerToolbar.Dock = System.Windows.Forms.DockStyle.Top;
             this.pnlExplorerToolbar.Height = 56;
             this.pnlExplorerToolbar.BackColor = System.Drawing.Color.White;
+            this.pnlExplorerToolbar.Paint += (s, e) =>
+            {
+                using var pen = new System.Drawing.Pen(ColorBorder, 1);
+                e.Graphics.DrawLine(pen, 0, this.pnlExplorerToolbar.Height - 1, this.pnlExplorerToolbar.Width, this.pnlExplorerToolbar.Height - 1);
+            };
 
             this.lblSearchHint.AutoSize = true;
             this.lblSearchHint.Text = "جستجو (نام، نام‌خانوادگی، کدملی):";
@@ -338,56 +343,97 @@
             this.gridExplorer.Columns.Add(col);
         }
 
-        private void CreateStatCard(System.Windows.Forms.Panel container, string caption, System.Drawing.Color accent, int x, Func<RecordResult, bool>? filterPredicate, out System.Windows.Forms.Label valueLabel)
+        private static readonly System.Drawing.Color ColorCardHoverBg = System.Drawing.Color.FromArgb(248, 250, 252);
+        private static readonly System.Drawing.Color ColorChevronIdle = System.Drawing.Color.FromArgb(203, 213, 225);
+
+        private void CreateStatCard(System.Windows.Forms.Panel container, string caption, string subtitle, System.Drawing.Color accent, int x, Func<RecordResult, bool>? filterPredicate, out System.Windows.Forms.Label valueLabel)
         {
             var card = new System.Windows.Forms.Panel
             {
-                Location = new System.Drawing.Point(x, 10),
-                Size = new System.Drawing.Size(230, 76),
+                Location = new System.Drawing.Point(x, 12),
+                Size = new System.Drawing.Size(228, 94),
                 BackColor = System.Drawing.Color.White,
-                BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle,
                 Cursor = System.Windows.Forms.Cursors.Hand
+            };
+            card.Paint += (s, e) =>
+            {
+                using var pen = new System.Drawing.Pen(System.Drawing.Color.FromArgb(226, 232, 240), 1);
+                e.Graphics.DrawRectangle(pen, 0, 0, card.Width - 1, card.Height - 1);
             };
 
             var accentStrip = new System.Windows.Forms.Panel
             {
                 Dock = System.Windows.Forms.DockStyle.Left,
-                Width = 4,
+                Width = 5,
                 BackColor = accent
             };
 
             valueLabel = new System.Windows.Forms.Label
             {
                 AutoSize = false,
-                Font = new System.Drawing.Font("Segoe UI", 17F, System.Drawing.FontStyle.Bold),
+                Font = new System.Drawing.Font("Segoe UI", 19F, System.Drawing.FontStyle.Bold),
                 ForeColor = System.Drawing.Color.FromArgb(30, 41, 59),
                 Text = "0",
                 TextAlign = System.Drawing.ContentAlignment.MiddleLeft,
-                Location = new System.Drawing.Point(16, 4),
-                Size = new System.Drawing.Size(200, 38),
+                Location = new System.Drawing.Point(18, 10),
+                Size = new System.Drawing.Size(170, 34),
                 Cursor = System.Windows.Forms.Cursors.Hand
             };
 
             var captionLabel = new System.Windows.Forms.Label
             {
                 AutoSize = false,
-                Font = new System.Drawing.Font("Segoe UI", 8F),
-                ForeColor = System.Drawing.Color.FromArgb(100, 116, 139),
+                Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold),
+                ForeColor = System.Drawing.Color.FromArgb(51, 65, 85),
                 Text = caption,
                 TextAlign = System.Drawing.ContentAlignment.TopLeft,
-                Location = new System.Drawing.Point(17, 46),
-                Size = new System.Drawing.Size(200, 26),
+                Location = new System.Drawing.Point(19, 46),
+                Size = new System.Drawing.Size(190, 20),
                 Cursor = System.Windows.Forms.Cursors.Hand
             };
 
-            System.EventHandler handler = (s, e) => this.ShowResultsDetail(filterPredicate, caption);
-            card.Click += handler;
-            valueLabel.Click += handler;
-            captionLabel.Click += handler;
-            accentStrip.Click += handler;
+            var subtitleLabel = new System.Windows.Forms.Label
+            {
+                AutoSize = false,
+                Font = new System.Drawing.Font("Segoe UI", 7.5F),
+                ForeColor = System.Drawing.Color.FromArgb(148, 163, 184),
+                Text = subtitle,
+                TextAlign = System.Drawing.ContentAlignment.TopLeft,
+                Location = new System.Drawing.Point(19, 68),
+                Size = new System.Drawing.Size(180, 18),
+                Cursor = System.Windows.Forms.Cursors.Hand
+            };
 
-            card.Controls.Add(valueLabel);
+            var chevron = new System.Windows.Forms.Label
+            {
+                AutoSize = false,
+                Font = new System.Drawing.Font("Segoe UI", 15F, System.Drawing.FontStyle.Bold),
+                ForeColor = ColorChevronIdle,
+                Text = "›",
+                TextAlign = System.Drawing.ContentAlignment.MiddleCenter,
+                Location = new System.Drawing.Point(card.Width - 30, 30),
+                Size = new System.Drawing.Size(22, 34),
+                Cursor = System.Windows.Forms.Cursors.Hand,
+                Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right
+            };
+
+            var parts = new System.Windows.Forms.Control[] { card, accentStrip, valueLabel, captionLabel, subtitleLabel, chevron };
+
+            System.EventHandler clickHandler = (s, e) => this.ShowResultsDetail(filterPredicate, caption);
+            System.EventHandler enterHandler = (s, e) => { card.BackColor = ColorCardHoverBg; chevron.ForeColor = accent; };
+            System.EventHandler leaveHandler = (s, e) => { card.BackColor = System.Drawing.Color.White; chevron.ForeColor = ColorChevronIdle; };
+
+            foreach (var part in parts)
+            {
+                part.Click += clickHandler;
+                part.MouseEnter += enterHandler;
+                part.MouseLeave += leaveHandler;
+            }
+
+            card.Controls.Add(chevron);
+            card.Controls.Add(subtitleLabel);
             card.Controls.Add(captionLabel);
+            card.Controls.Add(valueLabel);
             card.Controls.Add(accentStrip);
 
             container.Controls.Add(card);
