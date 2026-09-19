@@ -20,6 +20,7 @@ public class SendDecisionService
         LogDbContext logsDb, CancellationToken cancellationToken)
     {
         var latestPerPerId = await logsDb.SendLogs
+            .AsNoTracking()
             .Where(x => x.Status == SendStatus.Sent)
             .GroupBy(x => x.PerId)
             .Select(g => g.OrderByDescending(x => x.OccurredAtUtc).First())

@@ -45,9 +45,19 @@ builder.Services
 
 builder.Services.AddAuthorization();
 
+var permitLimitPerMinute = builder.Configuration.GetValue<int?>("RateLimiting:PermitLimitPerMinute") ?? 6000;
+
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.OnRejected = (context, _) =>
+    {
+        context.HttpContext.Response.Headers["Retry-After"] =
+            context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var retryAfter)
+                ? ((int)Math.Ceiling(retryAfter.TotalSeconds)).ToString()
+                : "60";
+        return ValueTask.CompletedTask;
+    };
 
     options.AddPolicy("PerClientLimit", context =>
     {
@@ -55,7 +65,7 @@ builder.Services.AddRateLimiter(options =>
 
         return RateLimitPartition.GetFixedWindowLimiter(clientKey, _ => new FixedWindowRateLimiterOptions
         {
-            PermitLimit = 100,
+            PermitLimit = permitLimitPerMinute,
             Window = TimeSpan.FromMinutes(1),
             QueueLimit = 0
         });

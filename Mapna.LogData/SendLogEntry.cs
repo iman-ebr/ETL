@@ -9,4 +9,6 @@ public class SendLogEntry
     public string? Reason { get; set; }
     public string? ChangedFields { get; set; }
     public string? PayloadSnapshot { get; set; }
+    public string? PlayLoadHash { get; set; }
 }
+

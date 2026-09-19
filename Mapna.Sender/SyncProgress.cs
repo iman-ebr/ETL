@@ -13,4 +13,8 @@ public class SyncProgress
     public int CurrentPerId { get; set; }
     public SendStatus LastStatus { get; set; }
     public string? LastReason { get; set; }
+
+    public bool IsPaused { get; set; }
+    public string? PauseMessage { get; set; }
+    public Guid? RunId { get; set; }
 }

@@ -1,20 +1,46 @@
-﻿using Mapna.Contracts;
+﻿using Dapper;
+using Mapna.Contracts;
 using Microsoft.Data.SqlClient;
+using Polly;
 using System.Data;
-using Dapper;
 
 namespace Mapna.Sender;
 
 public class SourceRepository
 {
     private readonly string _connectionString;
+    private const int CircuitBreakThreshold = 5;
+    private static readonly TimeSpan CircuitBreakDuration = TimeSpan.FromSeconds(30);
+
+    private readonly IAsyncPolicy _resiliencePolicy;
+
 
     public SourceRepository(string connectionString)
     {
         _connectionString = connectionString;
+        _resiliencePolicy = BuildResiliencePolicy();
     }
 
-    public IReadOnlyList<PersonnelRecord> GetAllPersonnel()
+    private IAsyncPolicy? BuildResiliencePolicy()
+    {
+        var retry = Policy
+           .Handle<SqlException>()
+           .Or<TimeoutException>()
+           .WaitAndRetryAsync(retryCount: 3, attempt => TimeSpan.FromSeconds(Math.Pow(2, attempt)));
+
+        var circuitBreaker = Policy
+            .Handle<SqlException>()
+            .Or<TimeoutException>()
+            .CircuitBreakerAsync(CircuitBreakThreshold, CircuitBreakDuration);
+
+        return Policy.WrapAsync(retry, circuitBreaker);
+
+    }
+
+    public async Task<IReadOnlyList<PersonnelRecord>> GetAllPersonnelAsync() =>
+    await _resiliencePolicy.ExecuteAsync(() => GetAllPersonnelCoreAsync());
+
+    public async Task<IReadOnlyList<PersonnelRecord>> GetAllPersonnelCoreAsync()
     {
         const string query = @"
             SELECT
@@ -37,7 +63,7 @@ public class SourceRepository
             FROM PERSONEL_Sender";
 
         using IDbConnection connection = new SqlConnection(_connectionString);
-        var records = connection.Query<PersonnelRecord>(query).ToList();
+        var records = (await connection.QueryAsync<PersonnelRecord>(query)).ToList();
 
         foreach (var record in records)
         {

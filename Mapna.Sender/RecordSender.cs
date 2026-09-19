@@ -5,6 +5,8 @@ using System.Text;
 
 namespace Mapna.Sender;
 
+public sealed record SendOutcome(SendStatus Status, string? Reason, string? ChangedFields, string PayloadSnapshot);
+
 public class RecordSender
 {
     private readonly HttpClient _httpClient;
@@ -16,19 +18,19 @@ public class RecordSender
         _logDbContext = logDbContext;
     }
 
-    public async Task<(SendStatus status, string? reason)> SendAsync(
+    public async Task<SendOutcome> SendAsync(
         PersonnelRecord record, SendDecision decision, CancellationToken cancellationToken)
     {
         if (decision.Action == SendAction.SkipValidationFailed)
         {
-            AddLog(record.PerId, SendStatus.ValidationFailed, decision.Reason, decision.ChangedFields, decision.PayloadSnapshot);
-            return (SendStatus.ValidationFailed, decision.Reason);
+            AddAuditLog(record.PerId, SendStatus.ValidationFailed, decision.Reason, decision.ChangedFields, decision.PayloadSnapshot);
+            return new SendOutcome(SendStatus.ValidationFailed, decision.Reason, decision.ChangedFields, decision.PayloadSnapshot);
         }
 
         if (decision.Action == SendAction.SkipDuplicate)
         {
-            AddLog(record.PerId, SendStatus.Duplicate, null, null, decision.PayloadSnapshot);
-            return (SendStatus.Duplicate, null);
+            AddAuditLog(record.PerId, SendStatus.Duplicate, null, null, decision.PayloadSnapshot);
+            return new SendOutcome(SendStatus.Duplicate, null, null, decision.PayloadSnapshot);
         }
 
         try
@@ -40,24 +42,30 @@ public class RecordSender
 
             if (response.IsSuccessStatusCode)
             {
-                AddLog(record.PerId, SendStatus.Sent, null, decision.ChangedFields, decision.PayloadSnapshot);
-                return (SendStatus.Sent, decision.ChangedFields);
+                AddAuditLog(record.PerId, SendStatus.Sent, null, decision.ChangedFields, decision.PayloadSnapshot);
+                return new SendOutcome(SendStatus.Sent, decision.ChangedFields, decision.ChangedFields, decision.PayloadSnapshot);
             }
 
             var body = await SafeReadBodyAsync(response, cancellationToken);
             var reason = $"Api responded with {(int)response.StatusCode}: {body}";
-            AddLog(record.PerId, SendStatus.SendFailed, reason, null, decision.PayloadSnapshot);
-            return (SendStatus.SendFailed, reason);
+            AddAuditLog(record.PerId, SendStatus.SendFailed, reason, null, decision.PayloadSnapshot);
+            return new SendOutcome(SendStatus.SendFailed, reason, null, decision.PayloadSnapshot);
         }
         catch (OperationCanceledException)
         {
             throw;
         }
+        catch (Polly.CircuitBreaker.BrokenCircuitException)
+        {
+            // Let this propagate untouched - SyncOrchestrator recognizes it specifically
+            // and pauses the whole run, rather than treating it as a per-record failure.
+            throw;
+        }
         catch (Exception ex)
         {
             var reason = $"Network error after retrying: {ex.Message}";
-            AddLog(record.PerId, SendStatus.SendFailed, reason, null, decision.PayloadSnapshot);
-            return (SendStatus.SendFailed, reason);
+            AddAuditLog(record.PerId, SendStatus.SendFailed, reason, null, decision.PayloadSnapshot);
+            return new SendOutcome(SendStatus.SendFailed, reason, null, decision.PayloadSnapshot);
         }
     }
 
@@ -73,7 +81,7 @@ public class RecordSender
         }
     }
 
-    private void AddLog(int perId, SendStatus status, string? reason, string? changedField, string payloadSnapshot)
+    private void AddAuditLog(int perId, SendStatus status, string? reason, string? changedField, string payloadSnapshot)
     {
         _logDbContext.SendLogs.Add(new SendLogEntry
         {
