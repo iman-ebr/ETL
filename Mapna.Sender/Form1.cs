@@ -182,7 +182,7 @@ public partial class Form1 : Form
             _logger.Error(ex, "Unhandled error surfaced to the UI from the sync run");
             MessageBox.Show(
                 $"هنگام همگام‌سازی خطای غیرمنتظره‌ای رخ داد:\n{ex.Message}\n\n" +
-                "نگران نباشید: پیشرفت تا این لحظه در پایگاه‌داده مرکزی ذخیره شده و با اجرای مجدد برنامه، " +
+                "پیشرفت تا این لحظه در پایگاه‌داده مرکزی ذخیره شده و با اجرای مجدد برنامه، " +
                 "امکان ادامه از همین‌جا وجود دارد.",
                 "خطا",
                 MessageBoxButtons.OK,

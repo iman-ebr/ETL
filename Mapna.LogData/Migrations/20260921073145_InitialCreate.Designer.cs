@@ -12,8 +12,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Mapna.LogData.Migrations
 {
     [DbContext(typeof(LogDbContext))]
-    [Migration("20260913045454_LaptopMigration")]
-    partial class LaptopMigration
+    [Migration("20260921073145_InitialCreate")]
+    partial class InitialCreate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -152,6 +152,9 @@ namespace Mapna.LogData.Migrations
 
                     b.Property<int>("PerId")
                         .HasColumnType("int");
+
+                    b.Property<string>("PlayLoadHash")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Reason")
                         .HasMaxLength(500)

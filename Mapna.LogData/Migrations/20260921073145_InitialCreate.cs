@@ -31,7 +31,7 @@ namespace Mapna.LogData.Migrations
                     BornDate = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     NationalCode = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     UserPrincipalName = table.Column<string>(type: "nvarchar(max)", nullable: true),
-                    CompanyId = table.Column<int>(type: "int", nullable: true),
+                    CompanyId = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     PerContract = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     LastUpdatedUtc = table.Column<DateTime>(type: "datetime2", nullable: false)
                 },
@@ -68,7 +68,8 @@ namespace Mapna.LogData.Migrations
                     Status = table.Column<string>(type: "nvarchar(30)", maxLength: 30, nullable: false),
                     Reason = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
                     ChangedFields = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
-                    PayloadSnapshot = table.Column<string>(type: "nvarchar(max)", nullable: true)
+                    PayloadSnapshot = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    PlayLoadHash = table.Column<string>(type: "nvarchar(max)", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -87,9 +88,9 @@ namespace Mapna.LogData.Migrations
                 column: "PerId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_SendLogs_PerId",
+                name: "IX_SendLogs_PerId_Status_OccurredAtUtc",
                 table: "SendLogs",
-                column: "PerId");
+                columns: new[] { "PerId", "Status", "OccurredAtUtc" });
         }
 
         /// <inheritdoc />

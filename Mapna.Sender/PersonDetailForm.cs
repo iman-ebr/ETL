@@ -71,7 +71,7 @@ public class PersonDetailForm : Form
             AutoSize = true,
             Location = new Point(89, 54)
         };
-        header.Controls.Add(avatar);
+        //header.Controls.Add(avatar);
         header.Controls.Add(lblName);
         header.Controls.Add(lblSubId);
 

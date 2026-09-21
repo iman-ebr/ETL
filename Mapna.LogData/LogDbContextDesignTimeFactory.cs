@@ -7,7 +7,7 @@ namespace Mapna.LogData;
 public class LogDbContextDesignTimeFactory : IDesignTimeDbContextFactory<LogDbContext>
 {
     private const string FallbackConnectionString =
-        "Server=(localdb)\\MSSQLLocalDB;Database=MapnaEtlDb;Trusted_Connection=True;TrustServerCertificate=True;";
+        "Server=DESKTOP-STI8I5P\\SQL2025;Database=MapnaEtlDb;Trusted_Connection=True;TrustServerCertificate=True;";
 
     public LogDbContext CreateDbContext(string[] args)
     {
