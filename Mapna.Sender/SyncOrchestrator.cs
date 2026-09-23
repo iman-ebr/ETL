@@ -47,7 +47,6 @@ public class SyncOrchestrator
             throw new ConcurrentRunDetectedException(activeElsewhere.RunId);
         }
 
-        // ---- Load: pause/retry indefinitely on a sustained outage ----
         var srcRepo = new SourceRepository(_settings.SourceConnectionString);
         IReadOnlyList<PersonnelRecord> records;
         while (true)
@@ -84,7 +83,6 @@ public class SyncOrchestrator
         var lastSentByPerId = await SendDecisionService.LoadLastSentAsync(logdb, cancellationToken);
         var decisionService = new SendDecisionService(lastSentByPerId);
 
-        // ---- Stage ----
         Guid runId;
         HashSet<int> toProcessPerIds;
         int preFinishedCount;

@@ -74,6 +74,14 @@ public class SourceRepository
             record.UserPrincipalName = NormalizeNull(record.UserPrincipalName);
             record.PerContract = NormalizeNull(record.PerContract);
             record.BornDate = NormalizeNull(record.BornDate);
+            record.CompanyId = NormalizeNull(record.CompanyId);
+            record.PerName = NormalizeNull(record.PerName) ?? string.Empty;
+            record.PerSurname = NormalizeNull(record.PerSurname) ?? string.Empty;
+            record.PerLName = NormalizeNull(record.PerLName) ?? string.Empty;
+            record.PerLSurname = NormalizeNull(record.PerLSurname) ?? string.Empty;
+            record.SexCode = NormalizeNull(record.SexCode) ?? string.Empty;
+            record.NationalCode = NormalizeNull(record.NationalCode) ?? string.Empty;
+
         }
 
         return records;

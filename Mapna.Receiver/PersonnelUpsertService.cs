@@ -1,5 +1,6 @@
 ﻿using Mapna.Contracts;
 using Mapna.LogData;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 
 namespace Mapna.Receiver;
@@ -8,6 +9,8 @@ public class PersonnelUpsertService
 {
     private readonly LogDbContext _db;
     private readonly PersonnelValidator validator;
+    private const int MaxUpsertAttempts = 2;
+
 
     public PersonnelUpsertService(LogDbContext db)
     {
@@ -27,37 +30,71 @@ public class PersonnelUpsertService
         }
         await CheckNationalCodeConflictAsync(record);
 
-        var existing = await _db.Personnel
+        for (var attemp = 1; attemp <= MaxUpsertAttempts; attemp++) 
+        {
+            var existing = await _db.Personnel
             .FirstOrDefaultAsync(p => p.PerId == record.PerId);
 
-        if (existing is null)
-        {
-            var newEntity = new Personnel();
-            record.ApplyTo(newEntity);
-            _db.Personnel.Add(newEntity);
+            if (existing is null)
+            {
+                var newEntity = new Personnel();
+                record.ApplyTo(newEntity);
+                _db.Personnel.Add(newEntity);
 
-            await AddLogAsync(record.PerId, ReceiveStatus.Inserted, null, null);
+                await AddLogAsync(record.PerId, ReceiveStatus.Inserted, null, null);
+                try
+                {
+                    await _db.SaveChangesAsync();
+                    return ReceiveStatus.Inserted;
+                }
+                catch (DbUpdateException ex) when (attemp < MaxUpsertAttempts && IsPerIdUniqueViolation(ex))
+                {
+                    _db.ChangeTracker.Clear();
+                    continue;
+                }
+            }
+            var changedFields = FieldChangeDetector.GetChangedField(
+                 record, existing, nameof(PersonnelRecord.PerId));
+
+            if (changedFields.Count == 0)
+            {
+                await AddLogAsync(record.PerId, ReceiveStatus.Duplicate, null, null);
+                await _db.SaveChangesAsync();
+                return ReceiveStatus.Duplicate;
+            }
+
+            record.ApplyTo(existing);
+            var changedFieldsText = string.Join(",", changedFields);
+
+            await AddLogAsync(record.PerId, ReceiveStatus.Updated, changedFieldsText, null);
             await _db.SaveChangesAsync();
-            return ReceiveStatus.Inserted;
+            return ReceiveStatus.Updated;
         }
 
-        var changedFields = FieldChangeDetector.GetChangedField(
-            record, existing, nameof(PersonnelRecord.PerId));
-
-        if (changedFields.Count == 0)
-        {
-            await AddLogAsync(record.PerId, ReceiveStatus.Duplicate, null, null);
-            await _db.SaveChangesAsync();
-            return ReceiveStatus.Duplicate;
-        }
-
-        record.ApplyTo(existing);
-        var changedFieldsText = string.Join(",", changedFields);
-
-        await AddLogAsync(record.PerId, ReceiveStatus.Updated, changedFieldsText, null);
-        await _db.SaveChangesAsync();
-        return ReceiveStatus.Updated;
+        throw new InvalidOperationException($"Could not upsert PerId {record.PerId} after {MaxUpsertAttempts} attempts.");
     }
+        
+
+        //var changedFields = FieldChangeDetector.GetChangedField(
+        //    record, existing, nameof(PersonnelRecord.PerId));
+
+        //if (changedFields.Count == 0)
+        //{
+        //    await AddLogAsync(record.PerId, ReceiveStatus.Duplicate, null, null);
+        //    await _db.SaveChangesAsync();
+        //    return ReceiveStatus.Duplicate;
+        //}
+
+        //record.ApplyTo(existing);
+        //var changedFieldsText = string.Join(",", changedFields);
+
+        //await AddLogAsync(record.PerId, ReceiveStatus.Updated, changedFieldsText, null);
+        //await _db.SaveChangesAsync();
+        //return ReceiveStatus.Updated;
+    
+
+    private static bool IsPerIdUniqueViolation(DbUpdateException ex)=>
+         ex.InnerException is SqlException sqlEx && (sqlEx.Number == 2601 || sqlEx.Number == 2627);
 
     private async Task CheckNationalCodeConflictAsync(PersonnelRecord record)
     {
