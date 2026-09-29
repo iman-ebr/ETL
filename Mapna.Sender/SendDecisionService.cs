@@ -8,25 +8,19 @@ namespace Mapna.Sender;
 public class SendDecisionService
 {
     private readonly PersonnelValidator _validator;
-    private readonly IReadOnlyDictionary<int, SendLogEntry> _lastSentByPerId;
+    private readonly IReadOnlyDictionary<int, SendState> _lastSentByPerId;
 
-    public SendDecisionService(IReadOnlyDictionary<int, SendLogEntry> lastSentByPerId)
+    public SendDecisionService(IReadOnlyDictionary<int, SendState> lastSentByPerId)
     {
         _validator = new PersonnelValidator();
         _lastSentByPerId = lastSentByPerId;
     }
 
-    public static async Task<Dictionary<int, SendLogEntry>> LoadLastSentAsync(
+    public static async Task<Dictionary<int, SendState>> LoadStatesAsync(
         LogDbContext logsDb, CancellationToken cancellationToken)
     {
-        var latestPerPerId = await logsDb.SendLogs
-            .AsNoTracking()
-            .Where(x => x.Status == SendStatus.Sent)
-            .GroupBy(x => x.PerId)
-            .Select(g => g.OrderByDescending(x => x.OccurredAtUtc).First())
-            .ToListAsync(cancellationToken);
-
-        return latestPerPerId.ToDictionary(x => x.PerId);
+        var states = await logsDb.SendStates.ToListAsync(cancellationToken);
+        return states.ToDictionary(x => x.PerId);
     }
 
     public SendDecision Decide(PersonnelRecord record)

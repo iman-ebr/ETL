@@ -11,11 +11,13 @@ public class RecordSender
 {
     private readonly HttpClient _httpClient;
     private readonly LogDbContext _logDbContext;
+    private readonly Dictionary<int, SendState> _states;
 
-    public RecordSender(HttpClient httpClient, LogDbContext logDbContext)
+    public RecordSender(HttpClient httpClient, LogDbContext logDbContext ,Dictionary<int, SendState> states)
     {
         _httpClient = httpClient;
         _logDbContext = logDbContext;
+        _states = states;
     }
 
     public async Task<SendOutcome> SendAsync(
@@ -43,12 +45,14 @@ public class RecordSender
             if (response.IsSuccessStatusCode)
             {
                 AddAuditLog(record.PerId, SendStatus.Sent, null, decision.ChangedFields, decision.PayloadSnapshot);
-                return new SendOutcome(SendStatus.Sent, decision.ChangedFields, decision.ChangedFields, decision.PayloadSnapshot);
+                UpsertState(record.PerId, SendStatus.Sent, decision.PayloadSnapshot);
+                return new SendOutcome(SendStatus.Sent, Reason: null, ChangedFields: decision.ChangedFields, PayloadSnapshot: decision.PayloadSnapshot);
             }
 
             var body = await SafeReadBodyAsync(response, cancellationToken);
             var reason = $"Api responded with {(int)response.StatusCode}: {body}";
             AddAuditLog(record.PerId, SendStatus.SendFailed, reason, null, decision.PayloadSnapshot);
+            UpsertState(record.PerId, SendStatus.SendFailed, confirmedPayloadSnapshot: null);
             return new SendOutcome(SendStatus.SendFailed, reason, null, decision.PayloadSnapshot);
         }
         catch (OperationCanceledException)
@@ -57,14 +61,13 @@ public class RecordSender
         }
         catch (Polly.CircuitBreaker.BrokenCircuitException)
         {
-            // Let this propagate untouched - SyncOrchestrator recognizes it specifically
-            // and pauses the whole run, rather than treating it as a per-record failure.
             throw;
         }
         catch (Exception ex)
         {
             var reason = $"Network error after retrying: {ex.Message}";
             AddAuditLog(record.PerId, SendStatus.SendFailed, reason, null, decision.PayloadSnapshot);
+            UpsertState(record.PerId, SendStatus.SendFailed, confirmedPayloadSnapshot: null);
             return new SendOutcome(SendStatus.SendFailed, reason, null, decision.PayloadSnapshot);
         }
     }
@@ -92,5 +95,24 @@ public class RecordSender
             ChangedFields = LogFieldLimit.Truncate(changedField, LogFieldLimit.ChangedFieldsMaxLength),
             PayloadSnapshot = payloadSnapshot
         });
+    }
+
+    private void UpsertState(int perId, SendStatus status, string? confirmedPayloadSnapshot)
+    {
+        var now = DateTime.UtcNow;
+
+        if (!_states.TryGetValue(perId, out var state))
+        {
+            state = new SendState { PerId = perId };
+            _logDbContext.SendStates.Add(state);
+            _states[perId] = state;
+        }
+
+        state.LastStatus = status;
+        state.LastAttemptAtUtc = now;
+
+        if (confirmedPayloadSnapshot is null) return;
+        state.PayloadSnapshot = confirmedPayloadSnapshot;
+        state.LastSentAtUtc = now;
     }
 }

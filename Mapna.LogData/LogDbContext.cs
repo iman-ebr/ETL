@@ -12,6 +12,8 @@ public class LogDbContext : DbContext
     public DbSet<Personnel> Personnel { get; set; }
     public DbSet<SendLogEntry> SendLogs { get; set; }
     public DbSet<ReceiveLogEntry> ReceiveLogs { get; set; }
+    public DbSet<SendState> SendStates { get; set; }
+
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -41,5 +43,16 @@ public class LogDbContext : DbContext
             e.Property(x => x.Reason).HasMaxLength(LogFieldLimit.ReasonMaxLength);
             e.HasIndex(x => x.PerId);
         });
+
+
+        modelBuilder.Entity<SendState>(e =>
+        {
+            e.ToTable("SendStates");
+            e.HasKey(x => x.PerId);
+            e.Property(x => x.PerId).ValueGeneratedNever();
+            e.Property(x => x.PayloadSnapshot).HasColumnType("nvarchar(max)");
+            e.Property(x => x.LastStatus).HasConversion<string>().HasMaxLength(LogFieldLimit.StatusMaxLength);
+        });
+
     }
 }           
