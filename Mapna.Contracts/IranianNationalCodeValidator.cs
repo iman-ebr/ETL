@@ -1,30 +1,33 @@
-﻿namespace Mapna.Contracts;
+namespace Mapna.Contracts;
 
-public class IranianNationalCodeValidator
+public static class IranianNationalCodeValidator
 {
     public static bool IsValid(string? nationalCode)
     {
-        if (string.IsNullOrWhiteSpace(nationalCode) || nationalCode.Length != 10)
+        if (string.IsNullOrEmpty(nationalCode) || nationalCode.Length != 10)
             return false;
 
-        if (!nationalCode.All(char.IsDigit))
-            return false;
+        // ASCII digits only. char.IsDigit() also accepts Persian/Arabic-Indic digits (U+06F0..U+06F9, U+0660..U+0669),
+        // which then break the (c - '0') arithmetic below. Non-ASCII digits must be normalized at the source edge
+        // (PersonnelNormalizer), never silently accepted here.
+        foreach (var c in nationalCode)
+        {
+            if (c is < '0' or > '9')
+                return false;
+        }
 
-        if (nationalCode.Distinct().Count() == 1)
+        if (nationalCode.AsSpan().IndexOfAnyExcept(nationalCode[0]) < 0)
             return false;
-
-        var digits = nationalCode.Select(c => c - '0').ToArray();
-        var checkDigit = digits[9];
 
         var sum = 0;
-        for (int i = 0; i < 9; i++)
-            sum += digits[i] * (10 - i);
+        for (var i = 0; i < 9; i++)
+            sum += (nationalCode[i] - '0') * (10 - i);
 
         var remainder = sum % 11;
+        var checkDigit = nationalCode[9] - '0';
 
         return remainder < 2
             ? checkDigit == remainder
             : checkDigit == 11 - remainder;
     }
-
 }

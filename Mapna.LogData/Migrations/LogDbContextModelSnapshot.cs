@@ -44,7 +44,8 @@ namespace Mapna.LogData.Migrations
 
                     b.Property<string>("NationalCode")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
 
                     b.Property<string>("PerAddr")
                         .HasColumnType("nvarchar(max)");
@@ -89,6 +90,10 @@ namespace Mapna.LogData.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("NationalCode")
+                        .IsUnique()
+                        .HasDatabaseName("UX_Personnel_NationalCode");
+
                     b.HasIndex("PerId")
                         .IsUnique();
 
@@ -97,15 +102,18 @@ namespace Mapna.LogData.Migrations
 
             modelBuilder.Entity("Mapna.LogData.ReceiveLogEntry", b =>
                 {
-                    b.Property<int>("Id")
+                    b.Property<long>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
+                        .HasColumnType("bigint");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<string>("ChangedFields")
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
+
+                    b.Property<Guid?>("CorrelationId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTime>("OccurredAtUtc")
                         .HasColumnType("datetime2");
@@ -124,6 +132,10 @@ namespace Mapna.LogData.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("CorrelationId");
+
+                    b.HasIndex("OccurredAtUtc");
+
                     b.HasIndex("PerId");
 
                     b.ToTable("ReceiveLogs", (string)null);
@@ -131,15 +143,18 @@ namespace Mapna.LogData.Migrations
 
             modelBuilder.Entity("Mapna.LogData.SendLogEntry", b =>
                 {
-                    b.Property<int>("Id")
+                    b.Property<long>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
+                        .HasColumnType("bigint");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<string>("ChangedFields")
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
+
+                    b.Property<Guid?>("CorrelationId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTime>("OccurredAtUtc")
                         .HasColumnType("datetime2");
@@ -157,6 +172,9 @@ namespace Mapna.LogData.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
+                    b.Property<Guid?>("RunId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(30)
@@ -164,9 +182,39 @@ namespace Mapna.LogData.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("CorrelationId")
+                        .IsUnique()
+                        .HasFilter("[CorrelationId] IS NOT NULL");
+
+                    b.HasIndex("OccurredAtUtc");
+
                     b.HasIndex("PerId", "Status", "OccurredAtUtc");
 
                     b.ToTable("SendLogs", (string)null);
+                });
+
+            modelBuilder.Entity("Mapna.LogData.SendState", b =>
+                {
+                    b.Property<int>("PerId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("LastAttemptAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("LastSentAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("LastStatus")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<string>("PayloadSnapshot")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("PerId");
+
+                    b.ToTable("SendStates", (string)null);
                 });
 #pragma warning restore 612, 618
         }
