@@ -62,7 +62,6 @@ public class SyncOrchestrator
 
         progress.Report(new SyncProgress { Phase = SyncPhase.Preparing });
 
-        // 1) Single writer, enforced by the database (see SyncRunLock). Held until this method returns.
         await using var runLock = await SyncRunLock.TryAcquireAsync(_settings.AppConnectionString, cancellationToken);
         if (runLock is null)
         {
@@ -71,19 +70,16 @@ public class SyncOrchestrator
             throw new ConcurrentRunDetectedException(active?.RunId ?? Guid.Empty);
         }
 
-        // 2) Never write against a schema that is behind the code (e.g. SendStates missing).
         await using var logdb = LogsDbContextFactory.Create(_settings.AppConnectionString);
         var pending = (await logdb.Database.GetPendingMigrationsAsync(cancellationToken)).ToList();
         if (pending.Count > 0)
             throw new SchemaOutOfDateException(pending);
         await _staging.EnsureSchemaAsync(cancellationToken);
 
-        // 3) Read the source and the decision state.
         progress.Report(new SyncProgress { Phase = SyncPhase.LoadingSource });
         var source = SourceSnapshot.Create(await LoadSourceAsync(progress, cancellationToken));
         var decisionService = new SendDecisionService(await SendDecisionService.LoadStatesAsync(logdb, cancellationToken));
 
-        // 4) Create or resume the run.
         progress.Report(new SyncProgress { Phase = SyncPhase.Staging, Total = source.Count });
         var run = await PrepareRunAsync(resumeRunId, source, cancellationToken);
         var ctx = new RunContext(run.RunId, run.Total, run.Baseline, progress, runLock);
@@ -167,8 +163,6 @@ public class SyncOrchestrator
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            // A user stop is resumable (Paused), which is what the UI tells the user. The old code marked it
-            // 'Cancelled', a status FindResumableRunAsync never returns.
             finalStatus = RunStatus.Paused;
             stopReason = "توقف توسط کاربر";
             throw;
@@ -185,8 +179,6 @@ public class SyncOrchestrator
 
             if (buffer.Count > 0)
             {
-                // All-or-nothing (one transaction). If it fails, these items stay Pending in staging AND their
-                // SendStates are unchanged, so resume re-decides them consistently.
                 try { await _staging.FlushResultsAsync(ctx.RunId, buffer, CancellationToken.None); }
                 catch (Exception ex)
                 {
@@ -245,7 +237,6 @@ public class SyncOrchestrator
         if (resumeRunId is { } existingId &&
             await _staging.GetRunAsync(existingId, cancellationToken) is { Status: RunStatus.Paused or RunStatus.Running or RunStatus.Crashed })
         {
-            // Stage records that appeared in the source since the run began. Before, a resumed run silently skipped them.
             var added = await _staging.StageBatchAsync(existingId, stageItems, cancellationToken);
             await _staging.MarkRunResumedAsync(existingId, source.Count, cancellationToken);
             var run = await _staging.GetRunAsync(existingId, cancellationToken) ?? throw new InvalidOperationException("Run vanished");
@@ -289,13 +280,10 @@ public class SyncOrchestrator
             }
             catch (BrokenCircuitException ex)
             {
-                // Receiver unreachable: wait as long as it takes (cancellable). The record is NOT marked failed.
                 await WaitForConnectivityAsync(ctx, "Receiver API", ex, cancellationToken);
             }
             catch (TransientSendException ex)
             {
-                // The receiver is reachable but keeps failing THIS record. Bounded, so a poison record can't
-                // stall the run forever (the old loop re-sent the same record through the breaker indefinitely).
                 transientRounds++;
                 if (transientRounds >= MaxTransientRoundsPerRecord)
                 {
@@ -318,8 +306,6 @@ public class SyncOrchestrator
     {
         if (buffer.Count == 0) return;
 
-        // If our lock session died, another instance may already be running with fresher source data. Continuing
-        // with our in-memory snapshot could overwrite its newer values, so stop (resumable) instead.
         await ctx.RunLock.EnsureHeldAsync(cancellationToken);
 
         while (true)

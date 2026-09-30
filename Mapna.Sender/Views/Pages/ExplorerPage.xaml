@@ -108,7 +108,7 @@
                         <ui:ToggleSwitch
                             Grid.Column="2"
                             Content="فقط نامعتبرها"
-                            IsChecked="{Binding ShowInvalidOnly}" />
+                            IsChecked="{Binding ShowInvalidOnly}" Checked="ToggleSwitch_Checked" />
                     </Grid>
 
                     <ui:DataGrid

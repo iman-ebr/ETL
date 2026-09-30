@@ -36,12 +36,6 @@ public enum RunState
     Failed
 }
 
-/// <summary>
-/// Drives the sync dashboard. The orchestrator runs on the thread pool and reports into a lock-free queue. A
-/// 200 ms DispatcherTimer drains that queue in batches, so the UI thread does a bounded amount of work per frame
-/// no matter how fast records are processed. The old WinForms app marshalled every single record to the UI
-/// thread, and even ran the orchestrator's CPU work (JSON, reflection diffing) on it.
-/// </summary>
 public partial class DashboardViewModel : ObservableObject
 {
     public static readonly SKColor SentColor = SKColor.Parse("#10B981");
@@ -127,7 +121,6 @@ public partial class DashboardViewModel : ObservableObject
         _theme.ThemeChanged += (_, _) => ApplyChartTheme();
     }
 
-    // ---------------------------------------------------------------- state
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsBusy), nameof(IsIdle), nameof(IsPaused), nameof(IsPreparing), nameof(ShowPauseButton), nameof(ShowContinueButton),
@@ -168,7 +161,6 @@ public partial class DashboardViewModel : ObservableObject
         _ => SymbolRegular.CircleSmall24
     };
 
-    // ---------------------------------------------------------------- KPIs
 
     [ObservableProperty] [NotifyPropertyChangedFor(nameof(HasData))] public partial int Total { get; set; }
     [ObservableProperty] [NotifyPropertyChangedFor(nameof(HasData))] public partial int Processed { get; set; }
@@ -183,7 +175,6 @@ public partial class DashboardViewModel : ObservableObject
 
     public bool HasData => Processed > 0;
 
-    // ---------------------------------------------------------------- banner (errors, connectivity, resume offer)
 
     [ObservableProperty] public partial bool IsBannerOpen { get; set; }
     [ObservableProperty] public partial string BannerTitle { get; set; } = string.Empty;
@@ -209,7 +200,6 @@ public partial class DashboardViewModel : ObservableObject
         $"(ارسال {r.SentCount:N0}، بدون تغییر {r.DuplicateCount:N0}، ناموفق {r.FailedCount:N0}). " +
         "رکوردهای باقی‌مانده دوباره با مبدأ بررسی می‌شوند؛ رکوردهای تمام‌شده دوباره ارسال نمی‌شوند.";
 
-    // ---------------------------------------------------------------- results grid + detail
 
     public ObservableCollection<RecordResultItem> Results { get; } = [];
     public ICollectionView ResultsView { get; }
@@ -222,7 +212,6 @@ public partial class DashboardViewModel : ObservableObject
     [ObservableProperty] public partial RecordDetailViewModel? Detail { get; set; }
     [ObservableProperty] public partial bool IsDetailOpen { get; set; }
 
-    // ---------------------------------------------------------------- charts
 
     public ISeries[] StatusSeries { get; }
     public ObservableCollection<ObservablePoint> ThroughputPoints { get; } = [];
@@ -230,9 +219,6 @@ public partial class DashboardViewModel : ObservableObject
     public Axis[] XAxes { get; }
     public Axis[] YAxes { get; }
 
-    // ================================================================= lifecycle
-
-    /// <summary>Called when the page is first shown. Checks the database quickly and looks for an unfinished run.</summary>
     public async Task InitializeAsync()
     {
         if (_initialized) return;
@@ -280,7 +266,6 @@ public partial class DashboardViewModel : ObservableObject
         }
     }
 
-    // ================================================================= commands
 
     private bool CanStart() => IsIdle && IsEnvironmentReady;
 
@@ -384,7 +369,6 @@ public partial class DashboardViewModel : ObservableObject
             _notifications.Show("خروجی ذخیره شد", $"{rows.Count:N0} رکورد در {System.IO.Path.GetFileName(path)} ذخیره شد.", NotificationKind.Success);
     }
 
-    // ================================================================= run
 
     private async Task RunAsync(Guid? resumeRunId)
     {
@@ -504,12 +488,9 @@ public partial class DashboardViewModel : ObservableObject
         VisibleCount = 0;
     }
 
-    // ================================================================= progress pump (UI thread)
 
     private void DrainInbox()
     {
-        // Counters come from the last *Sending* report of the batch. The final batch ends with a "Finalizing" report
-        // that carries no counters; using "the last report" there froze the KPIs at the previous tick.
         SyncProgress? latest = null;
         var addedVisible = 0;
 
@@ -521,7 +502,7 @@ public partial class DashboardViewModel : ObservableObject
             if (p.IsRecordResult)
             {
                 var item = RecordResultItem.FromProgress(p, ++_sequence);
-                Results.Insert(0, item);   // newest first
+                Results.Insert(0, item);
                 if (IsVisible(item)) addedVisible++;
             }
 
@@ -573,7 +554,6 @@ public partial class DashboardViewModel : ObservableObject
                     StateText = p.PauseKind == SyncPauseKind.Connectivity ? "در انتظار اتصال" : "تلاش مجدد";
                     if (p.PauseKind == SyncPauseKind.Connectivity)
                     {
-                        // The circuit breaker opened: tell the operator even if the window is in the background.
                         _notifications.Show("اتصال قطع شد", p.PauseMessage ?? "در انتظار برقراری مجدد اتصال…", NotificationKind.Warning);
                         ShowBanner("اتصال قطع شده است", p.PauseMessage ?? string.Empty, InfoBarSeverity.Warning);
                     }
@@ -627,7 +607,6 @@ public partial class DashboardViewModel : ObservableObject
         if (second <= _lastSampleSecond || _sessionStartProcessed < 0) return;
         _lastSampleSecond = second;
 
-        // Throughput over a sliding 5 s window: smooth enough to read, recent enough to show stalls.
         var sessionProcessed = Processed - _sessionStartProcessed;
         _rateWindow.Enqueue((elapsed.TotalSeconds, sessionProcessed));
         while (_rateWindow.Count > 6) _rateWindow.Dequeue();
@@ -644,7 +623,6 @@ public partial class DashboardViewModel : ObservableObject
         EtaText = avg > 0.01 && remaining > 0 ? Display.Duration(TimeSpan.FromSeconds(remaining / avg)) : "—";
     }
 
-    // ================================================================= filtering / detail
 
     private bool IsVisible(RecordResultItem item) =>
         item.Matches(ActiveFilter) &&
@@ -696,7 +674,6 @@ public partial class DashboardViewModel : ObservableObject
         public void Report(SyncProgress value) => queue.Enqueue(value);
     }
 
-    /// <summary>Lets the window ask before closing while a run is active.</summary>
     public Task StopAndWaitAsync()
     {
         if (!IsBusy) return Task.CompletedTask;

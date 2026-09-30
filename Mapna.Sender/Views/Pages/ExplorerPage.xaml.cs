@@ -14,4 +14,9 @@ public partial class ExplorerPage : Page
         InitializeComponent();
         Loaded += async (_, _) => await viewModel.OnNavigatedToAsync();
     }
+
+    private void ToggleSwitch_Checked(object sender, System.Windows.RoutedEventArgs e)
+    {
+
+    }
 }

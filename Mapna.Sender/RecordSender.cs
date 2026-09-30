@@ -1,6 +1,7 @@
 ﻿using Mapna.Contracts;
 using Mapna.LogData;
 using Newtonsoft.Json;
+using System.Net.Http;
 using System.Text;
 
 namespace Mapna.Sender;
@@ -57,8 +58,6 @@ public class RecordSender
         }
         catch (Polly.CircuitBreaker.BrokenCircuitException)
         {
-            // Let this propagate untouched - SyncOrchestrator recognizes it specifically
-            // and pauses the whole run, rather than treating it as a per-record failure.
             throw;
         }
         catch (Exception ex)

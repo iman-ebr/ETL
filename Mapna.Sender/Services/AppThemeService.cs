@@ -51,7 +51,6 @@ public sealed class AppThemeService
         Apply(preference);
     }
 
-    /// <summary>Quick toggle from the title bar: flips to the opposite of what is shown now (and stops following Windows).</summary>
     public void Toggle() => SetPreference(IsDark ? ThemePreference.Light : ThemePreference.Dark);
 
     private void Apply(ThemePreference preference)
@@ -66,8 +65,6 @@ public sealed class AppThemeService
         };
         ApplicationThemeManager.Apply(theme, WindowBackdropType.Mica, true);
 
-        // SystemThemeWatcher needs the window's HWND: Watch/UnWatch before Loaded throws. That exception once
-        // meant a user who picked "Dark" could never open the app again (it died during startup with no window).
         if (_window.IsLoaded)
             UpdateWatcher(preference);
         else
@@ -110,7 +107,6 @@ public sealed class AppThemeService
         }
         catch
         {
-            // A corrupt preference file must never stop the app from starting.
         }
         return ThemePreference.System;
     }
@@ -124,7 +120,6 @@ public sealed class AppThemeService
         }
         catch
         {
-            // Non-critical.
         }
     }
 

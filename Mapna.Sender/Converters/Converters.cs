@@ -25,7 +25,6 @@ public sealed class NullToVisibilityConverter : IValueConverter
     public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) => Binding.DoNothing;
 }
 
-/// <summary>0 → Visible (empty-state placeholders); anything else → Collapsed. Invert for the opposite.</summary>
 public sealed class ZeroToVisibilityConverter : IValueConverter
 {
     public bool Invert { get; set; }
@@ -39,7 +38,7 @@ public sealed class ZeroToVisibilityConverter : IValueConverter
     public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) => Binding.DoNothing;
 }
 
-/// <summary>Two-way bridge between an enum property and a group of RadioButtons (segmented control).</summary>
+
 public sealed class EnumEqualsConverter : IValueConverter
 {
     public object Convert(object value, Type targetType, object parameter, CultureInfo culture) =>
@@ -49,7 +48,6 @@ public sealed class EnumEqualsConverter : IValueConverter
         value is true && parameter is string name ? Enum.Parse(targetType, name) : Binding.DoNothing;
 }
 
-/// <summary>Formats an int with thousands separators.</summary>
 public sealed class NumberConverter : IValueConverter
 {
     public object Convert(object value, Type targetType, object parameter, CultureInfo culture) =>
@@ -63,7 +61,6 @@ public sealed class NumberConverter : IValueConverter
     public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) => Binding.DoNothing;
 }
 
-/// <summary>value / Total as a percentage caption ("42.1%").</summary>
 public sealed class ShareConverter : IMultiValueConverter
 {
     public object Convert(object[] values, Type targetType, object parameter, CultureInfo culture)
