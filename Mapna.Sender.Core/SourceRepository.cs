@@ -61,8 +61,6 @@ public class SourceRepository
             FROM PERSONEL_Sender";
 
         await using var connection = new SqlConnection(_connectionString);
-        // Default command timeout is 30s. A full-table read of a large personnel table can exceed it, and the
-        // timeout was then retried 3x, so four full scans before giving up.
         var command = new CommandDefinition(query, commandTimeout: QueryTimeoutSeconds, cancellationToken: cancellationToken);
         var records = (await connection.QueryAsync<PersonnelRecord>(command)).ToList();
 

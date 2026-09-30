@@ -29,12 +29,9 @@ public class SyncProgress
     public int FailedCount { get; set; }
     public string CurrentPerson { get; set; } = string.Empty;
     public int CurrentPerId { get; set; }
-
-    /// <summary>
-    /// Non-null only when this report is the final outcome of one record. It used to be a non-nullable enum
-    /// that defaulted to Sent, so every "paused"/"resumed" report showed up in the grid as a phantom "Sent" row
-    /// for a record that had NOT been sent yet.
-    /// </summary>
+    
+    
+    
     public SendStatus? LastStatus { get; set; }
     public string? LastReason { get; set; }
     public string? LastChangedFields { get; set; }

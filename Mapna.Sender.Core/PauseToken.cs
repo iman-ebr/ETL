@@ -1,9 +1,5 @@
 namespace Mapna.Sender;
 
-/// <summary>
-/// Cooperative pause. The orchestrator only checks it BETWEEN records, so pausing never interrupts an in-flight
-/// HTTP request and never leaves a record's outcome ambiguous.
-/// </summary>
 public sealed class PauseTokenSource
 {
     private TaskCompletionSource? _resumeSignal;

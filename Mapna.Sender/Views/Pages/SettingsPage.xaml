@@ -30,7 +30,7 @@
                 <StackPanel>
                     <TextBlock Style="{StaticResource Body}" Text="پوسته‌ی برنامه به‌طور پیش‌فرض از تنظیمات ویندوز پیروی می‌کند." />
                     <StackPanel Margin="0,12,0,0" Orientation="Horizontal">
-                        <RadioButton Margin="0,0,24,0" Content="پیروی از ویندوز" GroupName="Theme" IsChecked="{Binding IsSystemTheme}" />
+                        <!--<RadioButton Margin="0,0,24,0" Content="پیروی از ویندوز" GroupName="Theme" IsChecked="{Binding IsSystemTheme}" />-->
                         <RadioButton Margin="0,0,24,0" Content="روشن" GroupName="Theme" IsChecked="{Binding IsLightTheme}" />
                         <RadioButton Content="تیره" GroupName="Theme" IsChecked="{Binding IsDarkTheme}" />
                     </StackPanel>

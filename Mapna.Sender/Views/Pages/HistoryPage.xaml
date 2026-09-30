@@ -25,13 +25,13 @@
             </Grid.ColumnDefinitions>
             <StackPanel>
                 <TextBlock Style="{StaticResource PageTitle}" Text="تاریخچه اجراها" />
-                <TextBlock Margin="0,6,0,0" Style="{StaticResource Caption}" Text="۵۰ اجرای اخیر و نتیجه‌ی تک‌تک رکوردها در هر اجرا." />
+                <TextBlock Margin="0,6,0,0" Style="{StaticResource Caption}" Text="۵۰ اجرای اخیر و نتیجه‌ی تک‌تک رکوردها در هر اجرا" />
             </StackPanel>
             <ui:Button
                 Grid.Column="1"
                 Height="36"
                 Command="{Binding RefreshCommand}"
-                Content="بازخوانی"
+                Content="رفرش"
                 Icon="{ui:SymbolIcon ArrowClockwise24}" />
         </Grid>
 

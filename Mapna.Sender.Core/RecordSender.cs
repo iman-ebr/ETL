@@ -8,7 +8,6 @@ using Polly.CircuitBreaker;
 
 namespace Mapna.Sender;
 
-/// <param name="ConfirmedByReceiver">True only on a 2xx. Only a confirmed send may advance SendStates.PayloadSnapshot.</param>
 public sealed record SendOutcome(
     SendStatus Status,
     string? Reason,
@@ -17,16 +16,10 @@ public sealed record SendOutcome(
     bool ConfirmedByReceiver = false,
     Guid? CorrelationId = null);
 
-/// <summary>Retries are exhausted but the record may succeed later (5xx, 408, 429, network, timeout). The record stays Pending.</summary>
 public sealed class TransientSendException(string message, Exception? inner = null) : Exception(message, inner);
 
-/// <summary>The receiver rejects *every* request (401/403/404/405). Marking thousands of records as failed is wrong; stop the run.</summary>
 public sealed class ReceiverConfigurationException(string message) : Exception(message);
 
-/// <summary>
-/// Does HTTP and classification only. It no longer writes to the database. The old version mixed network I/O
-/// with EF change-tracker mutations, and that coupling is where both the lost-state bug and the audit gaps came from.
-/// </summary>
 public class RecordSender
 {
     public const string CorrelationHeader = "X-Correlation-Id";

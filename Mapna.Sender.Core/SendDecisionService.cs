@@ -16,12 +16,6 @@ public class SendDecisionService
         _lastSentByPerId = lastSentByPerId;
     }
 
-    /// <summary>
-    /// Read-only snapshot of the decision state as it was when the run started. AsNoTracking matters: the old
-    /// code loaded every SendState as a TRACKED entity and mutated it later. The first flush called
-    /// ChangeTracker.Clear(), which detached all of them, so every later state update was silently dropped.
-    /// State is now written only by dbo.usp_FlushSyncResults, never through the change tracker.
-    /// </summary>
     public static async Task<Dictionary<int, SendState>> LoadStatesAsync(LogDbContext logsDb, CancellationToken cancellationToken)
     {
         var states = await logsDb.SendStates.AsNoTracking().ToListAsync(cancellationToken);

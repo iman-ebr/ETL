@@ -9,15 +9,6 @@ using Serilog;
 
 namespace Mapna.Sender;
 
-/// <summary>
-/// HTTP resilience for the receiver, on Polly v8 (Microsoft.Extensions.Http.Resilience). Microsoft.Extensions.Http.Polly
-/// is deprecated. Changes from the old policy, each tied to a finding in the review:
-///  * Retry honours Retry-After on 429/503 (the old fixed 2/4/8s backoff hammered a limiter that asked for 60s).
-///  * Per-attempt timeout plus a total timeout; HttpClient.Timeout is infinite so it can't cut the retries off halfway.
-///  * The breaker opens only on CONNECTIVITY failures (network, timeout, 502/503/504). A deterministic 500 for one
-///    bad record used to count toward it, so two adjacent poison records tripped it, and the orchestrator waited
-///    and retried the same poison record forever.
-/// </summary>
 public static class ReceiverHttpPipeline
 {
     public const string ClientName = "ReceiverApi";

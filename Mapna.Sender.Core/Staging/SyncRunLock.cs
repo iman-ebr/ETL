@@ -6,16 +6,7 @@ namespace Mapna.Sender.Staging;
 public sealed class RunLockLostException()
     : Exception("اتصال نگه‌دارنده‌ی قفل اجرا به پایگاه‌داده قطع شد؛ برای جلوگیری از اجرای هم‌زمان، اجرا متوقف شد و قابل ادامه است.");
 
-/// <summary>
-/// Cluster-wide single-writer guarantee for sync runs, via SQL Server sp_getapplock.
-///
-/// It replaces the old "SELECT active run, then INSERT new run" check, which was a check-then-act race (two
-/// Start clicks at the same moment both passed) and depended on client-clock heartbeats (a machine whose
-/// clock ran 2+ minutes fast saw a live run as stale and started a second one, or "resumed" it).
-///
-/// The lock belongs to a dedicated, non-pooled session. If the process dies, the OS closes the socket, SQL Server
-/// ends the session and the lock goes away. No heartbeat, no clocks, no stale-run heuristics.
-/// </summary>
+
 public sealed class SyncRunLock : IAsyncDisposable
 {
     public const string Resource = "Mapna.Sender.SyncRun";
@@ -25,8 +16,6 @@ public sealed class SyncRunLock : IAsyncDisposable
 
     public static async Task<SyncRunLock?> TryAcquireAsync(string connectionString, CancellationToken cancellationToken)
     {
-        // Pooling=false: a pooled connection is not really closed on Dispose, and its session (and lock) would
-        // outlive this object. The lock must live and die with this physical connection.
         var builder = new SqlConnectionStringBuilder(connectionString) { Pooling = false, ApplicationName = "Mapna.Sender.RunLock" };
         var connection = new SqlConnection(builder.ConnectionString);
         try
@@ -58,7 +47,6 @@ public sealed class SyncRunLock : IAsyncDisposable
         }
     }
 
-    /// <summary>Throws <see cref="RunLockLostException"/> if our session (and therefore the lock) is gone.</summary>
     public async Task EnsureHeldAsync(CancellationToken cancellationToken)
     {
         try
@@ -89,7 +77,6 @@ public sealed class SyncRunLock : IAsyncDisposable
         }
         catch
         {
-            // Closing the connection below releases it anyway.
         }
         await _connection.DisposeAsync();
     }

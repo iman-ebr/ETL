@@ -2,12 +2,6 @@ using Mapna.Contracts;
 
 namespace Mapna.Sender;
 
-/// <summary>
-/// The source rows of one run, indexed by PerId. <c>records.ToDictionary(r => r.PerId)</c> used to throw on the first
-/// duplicate PER_ID, so one bad source row stopped the sync for all personnel. Picking one of the duplicates
-/// "arbitrarily" would be worse: it could overwrite a real person with the wrong row. Duplicated PerIds are kept
-/// aside, reported as ValidationFailed, and never sent.
-/// </summary>
 public sealed class SourceSnapshot
 {
     public Dictionary<int, PersonnelRecord> ByPerId { get; } = new();

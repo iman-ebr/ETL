@@ -32,13 +32,11 @@ public class PersonnelValidator : AbstractValidator<PersonnelRecord>
             .Must(IranianNationalCodeValidator.IsValid)
             .WithMessage("کد ملی معتبر نیست.");
 
-        // WithMessage binds to the rule immediately before it, so each rule gets its own.
         RuleFor(x => x.PerEmail)
             .EmailAddress().WithMessage("فرمت ایمیل معتبر نیست.")
             .MaximumLength(PersonnelFieldLimits.Email).WithMessage($"ایمیل نباید بیش از {PersonnelFieldLimits.Email} کاراکتر باشد.")
             .When(x => !string.IsNullOrWhiteSpace(x.PerEmail));
 
-        // [0-9], not \d: in .NET, \d matches every Unicode decimal digit, so "09۱۲۳۴۵۶۷۸۹" used to pass.
         RuleFor(x => x.MobileNo)
             .Matches("^09[0-9]{9}$")
             .When(x => !string.IsNullOrWhiteSpace(x.MobileNo))

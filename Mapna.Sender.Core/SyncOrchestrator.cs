@@ -51,7 +51,6 @@ public class SyncOrchestrator
         _logger = logger;
     }
 
-    /// <summary>Test seam: lets integration tests route HTTP to an in-process receiver (WebApplicationFactory).</summary>
     internal Func<HttpMessageHandler>? PrimaryHttpHandler { get; init; }
 
     public async Task RunAsync(IProgress<SyncProgress> progress, CancellationToken cancellationToken, Guid? resumeRunId = null, PauseToken pauseToken = default)

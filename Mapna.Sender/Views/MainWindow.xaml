@@ -93,7 +93,7 @@
                     TargetPageType="{x:Type pages:DashboardPage}" />
                 <ui:NavigationViewItem
                     AutomationProperties.AutomationId="NavExplorer"
-                    Content="داده‌های مبدأ"
+                    Content="دیتا سورس"
                     Icon="{ui:SymbolIcon TableSearch24}"
                     TargetPageType="{x:Type pages:ExplorerPage}" />
                 <ui:NavigationViewItem
