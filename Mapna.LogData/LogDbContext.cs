@@ -21,9 +21,6 @@ public class LogDbContext : DbContext
             p.ToTable("Personnel");
             p.HasKey(x => x.Id);
             p.HasIndex(x => x.PerId).IsUnique();
-
-            // nvarchar(max) can't be indexed. A bounded column + a UNIQUE index is the only thing that actually
-            // stops two PerIds sharing a national code under concurrency. Application checks alone can't.
             p.Property(x => x.NationalCode).HasMaxLength(PersonnelFieldLimits.NationalCode);
             p.HasIndex(x => x.NationalCode).IsUnique().HasDatabaseName("UX_Personnel_NationalCode");
         });
@@ -37,7 +34,7 @@ public class LogDbContext : DbContext
             e.Property(x => x.ChangedFields).HasMaxLength(LogFieldLimit.ChangedFieldsMaxLength);
             e.Property(x => x.PayloadSnapshot).HasColumnType("nvarchar(max)");
             e.HasIndex(x => new { x.PerId, x.Status, x.OccurredAtUtc });
-            e.HasIndex(x => x.OccurredAtUtc);                   // retention/cleanup deletes by date
+            e.HasIndex(x => x.OccurredAtUtc);                   
             e.HasIndex(x => x.CorrelationId).IsUnique().HasFilter("[CorrelationId] IS NOT NULL");
         });
 

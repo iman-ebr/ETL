@@ -28,9 +28,6 @@ public sealed class SqlStagingRepository
 
     private IAsyncPolicy BuildResiliencePolicy()
     {
-        // Transient errors only. The old policy retried every SqlException, including "string or binary data
-        // would be truncated", so one over-long value opened the breaker and the orchestrator waited and retried
-        // the same batch forever.
         var retry = Policy
             .Handle<Exception>(SqlTransientErrors.IsTransient)
             .WaitAndRetryAsync(retryCount: 3, attempt => TimeSpan.FromSeconds(Math.Pow(2, attempt)));
@@ -68,7 +65,6 @@ public sealed class SqlStagingRepository
             }
         }, cancellationToken);
 
-    /// <summary>A run that is 'Running' AND whose run lock is currently held, i.e. really alive right now. No clocks involved.</summary>
     public Task<StagingRun?> FindActiveRunAsync(CancellationToken cancellationToken) =>
         QuerySingleRunAsync("""
             SELECT TOP 1 * FROM dbo.SyncRuns
@@ -77,10 +73,6 @@ public sealed class SqlStagingRepository
             ORDER BY StartedAtUtc DESC;
             """, cancellationToken);
 
-    /// <summary>
-    /// Paused runs, or 'Running' runs whose process is gone (nobody holds the run lock). The old version compared
-    /// a client-clock heartbeat with the reader's client clock, so a skewed machine could "resume" a live run.
-    /// </summary>
     public Task<StagingRun?> FindResumableRunAsync(CancellationToken cancellationToken) =>
         QuerySingleRunAsync("""
             SELECT TOP 1 * FROM dbo.SyncRuns
@@ -129,8 +121,6 @@ public sealed class SqlStagingRepository
                 """, new { RunId = runId, MachineName = Environment.MachineName }, cancellationToken: ct));
         }, cancellationToken);
 
-    /// <summary>Stages PerIds as Pending. Idempotent: PerIds already staged for the run are left alone, so the same
-    /// call also adds records that appeared in the source after the run started (on resume).</summary>
     public async Task<int> StageBatchAsync(Guid runId, IReadOnlyList<(int PerId, string PersonName)> items, CancellationToken cancellationToken)
     {
         if (items.Count == 0) return 0;
@@ -177,14 +167,7 @@ public sealed class SqlStagingRepository
         return inserted;
     }
 
-    /// <summary>
-    /// ONE transaction for: the audit rows (SendLogs), the decision state (SendStates) and the run's item status
-    /// (SyncItems + counters). Before, these were an EF SaveChanges plus a separate Dapper call, so a crash between
-    /// them left the three stores disagreeing. The finally-block even marked staging items done after a FAILED
-    /// SendLogs save, which lost audit rows for records that really were sent.
-    /// Replaying the same batch (after an ambiguous commit) is idempotent: CorrelationId is unique in SendLogs,
-    /// and the MERGEs converge.
-    /// </summary>
+
     public Task FlushResultsAsync(Guid runId, IReadOnlyList<SyncItemResult> items, CancellationToken cancellationToken) =>
         _resiliencePolicy.ExecuteAsync(async ct =>
         {
@@ -235,8 +218,6 @@ public sealed class SqlStagingRepository
                 new { RunId = runId }, cancellationToken: ct));
         }, cancellationToken);
 
-    /// <summary>For <see cref="RunStatus.Completed"/>, the database decides between Completed and CompletedWithFailures from
-    /// the real item counts. The old code used this session's in-memory counter, which is wrong for resumed runs.</summary>
     public Task CompleteRunAsync(Guid runId, RunStatus status, string? stopReason, CancellationToken cancellationToken) =>
         _resiliencePolicy.ExecuteAsync(async ct =>
         {
@@ -370,8 +351,6 @@ public sealed class SqlStagingRepository
         };
     }
 
-    // NOTE: user-defined table types cannot be ALTERed. A changed TVP needs a NEW name (as SyncResultTableType is).
-    // "IF TYPE_ID(...) IS NULL CREATE" silently keeps an old shape otherwise.
     private static readonly string[] SchemaBatches =
     [
         """

@@ -36,13 +36,15 @@ public class SyncOrchestrator
     private readonly SqlStagingRepository _staging;
     private readonly ILogger _logger;
 
-    // Small batches: a crash loses at most this many *audit rows*. Never data: those records stay Pending and are
-    // resent on resume, where the idempotent receiver answers "Duplicate".
     private const int FlushBatchSize = 25;
     private static readonly TimeSpan FlushInterval = TimeSpan.FromSeconds(1);
     private static readonly TimeSpan PausedHeartbeatInterval = TimeSpan.FromSeconds(20);
     private static readonly TimeSpan ConnectivityWait = ReceiverHttpPipeline.BreakDuration + TimeSpan.FromSeconds(2);
     private const int MaxTransientRoundsPerRecord = 4;
+    private sealed record RunBaseline(int Processed, int Sent, int Duplicate, int Failed);
+    private sealed record PreparedRun(Guid RunId, int Total, IReadOnlyList<int> ToProcess, RunBaseline Baseline);
+
+
 
     public SyncOrchestrator(AppSettings settings, SqlStagingRepository staging, ILogger logger)
     {
@@ -227,8 +229,6 @@ public class SyncOrchestrator
         }
     }
 
-    private sealed record PreparedRun(Guid RunId, int Total, IReadOnlyList<int> ToProcess, RunBaseline Baseline);
-
     private async Task<PreparedRun> PrepareRunAsync(Guid? resumeRunId, SourceSnapshot source, CancellationToken cancellationToken)
     {
         var stageItems = source.AllPerIds.Select(id => (id, source.Names.GetValueOrDefault(id, ""))).ToList();
@@ -359,7 +359,6 @@ public class SyncOrchestrator
         ctx.Progress.Report(ctx.Resumed());
     }
 
-    private sealed record RunBaseline(int Processed, int Sent, int Duplicate, int Failed);
 
     private sealed class RunContext(Guid runId, int total, RunBaseline baseline, IProgress<SyncProgress> progress, SyncRunLock runLock)
     {

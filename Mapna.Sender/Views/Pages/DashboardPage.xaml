@@ -11,7 +11,7 @@
     FontFamily="{StaticResource AppFont}"
     Title="داشبورد"
     d:DataContext="{d:DesignInstance vm:DashboardViewModel}"
-    d:DesignHeight="900"
+    d:DesignHeight="700"
     d:DesignWidth="1240"
     mc:Ignorable="d">
 

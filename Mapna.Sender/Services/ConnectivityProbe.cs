@@ -11,10 +11,6 @@ public sealed record EnvironmentStatus(bool AppDatabaseReachable, IReadOnlyList<
     public bool IsReady => AppDatabaseReachable && PendingMigrations.Count == 0 && Error is null;
 }
 
-/// <summary>
-/// Fast startup health check. It uses a short connect timeout so an unreachable server shows up in seconds,
-/// not after EF's full retry budget (about a minute).
-/// </summary>
 public sealed class ConnectivityProbe(AppSettings settings, SqlStagingRepository staging)
 {
     public async Task<EnvironmentStatus> CheckAppDatabaseAsync(CancellationToken cancellationToken = default)

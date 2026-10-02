@@ -40,7 +40,6 @@ public static class ReceiverHttpPipeline
                     Delay = TimeSpan.FromSeconds(2),
                     MaxDelay = TimeSpan.FromSeconds(60),
                     ShouldRetryAfterHeader = true,
-                    // Default ShouldHandle: HttpRequestException, TimeoutRejectedException, 5xx, 408, 429.
                 });
 
                 builder.AddCircuitBreaker(new HttpCircuitBreakerStrategyOptions
