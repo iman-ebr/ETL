@@ -103,7 +103,6 @@ public class RecordSender
         }
     }
 
-    /// <summary>Human-readable reason for the receiver's documented rejections. The status code stays in the text for tracing.</summary>
     private static string? DescribeRejection(int code, string body)
     {
         try
