@@ -1,4 +1,4 @@
-using Mapna.LogData;
+﻿using Mapna.LogData;
 using Mapna.Receiver;
 using Mapna.Receiver.Auth;
 using Microsoft.EntityFrameworkCore;
@@ -7,9 +7,13 @@ using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
-
-builder.Services.AddControllers();
+builder.Services.AddControllers(options =>
+{
+    // PersonnelValidator is the single validation contract. Without this, MVC's implicit [Required] on non-nullable
+    // strings would answer a null field with an automatic 400 ProblemDetails, a second rule set with a different
+    // response shape that the sender's validator doesn't know about.
+    options.SuppressImplicitRequiredAttributeForNonNullableReferenceTypes = true;
+});
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
@@ -33,7 +37,8 @@ builder.Services.AddSwaggerGen(options =>
 });
 
 builder.Services.AddDbContext<LogDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("AppDatabase")));
+    options.UseSqlServer(builder.Configuration.GetConnectionString("AppDatabase"), sql =>
+        sql.EnableRetryOnFailure(maxRetryCount: 3, maxRetryDelay: TimeSpan.FromSeconds(5), errorNumbersToAdd: null)));
 
 builder.Services.AddScoped<PersonnelUpsertService>();
 
@@ -41,7 +46,6 @@ builder.Services
     .AddAuthentication(ApiKeyAuthenticationOptions.DefaultScheme)
     .AddScheme<ApiKeyAuthenticationOptions, ApiKeyAuthenticationHandler>(
         ApiKeyAuthenticationOptions.DefaultScheme, options => { });
-
 
 builder.Services.AddAuthorization();
 
@@ -74,6 +78,20 @@ builder.Services.AddRateLimiter(options =>
 
 var app = builder.Build();
 
+// Refuse to serve against a schema that is behind the code. Writing with a stale schema is how silent
+// corruption starts. Migrations are applied by a deliberate deployment step, never implicitly here.
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<LogDbContext>();
+    var pending = (await db.Database.GetPendingMigrationsAsync()).ToList();
+    if (pending.Count > 0)
+    {
+        app.Logger.LogCritical("Database schema is behind. Pending migrations: {Pending}. Apply them before starting the receiver.",
+            string.Join(", ", pending));
+        return 1;
+    }
+}
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -90,4 +108,7 @@ app.UseRateLimiter();
 
 app.MapControllers();
 
-app.Run();
+await app.RunAsync();
+return 0;
+
+public partial class Program;
