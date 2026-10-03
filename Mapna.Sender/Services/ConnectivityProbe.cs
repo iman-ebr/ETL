@@ -62,7 +62,6 @@ public sealed class ConnectivityProbe(AppSettings settings, SqlStagingRepository
         try
         {
             using var http = new HttpClient { BaseAddress = settings.ReceiverBaseUri, Timeout = TimeSpan.FromSeconds(5) };
-            // GET on a POST-only route: any HTTP answer (typically 405) proves reachability without writing anything.
             using var response = await http.GetAsync("api/personnel", cancellationToken);
             return (true, $"{settings.ReceiverBaseUri} (HTTP {(int)response.StatusCode})");
         }

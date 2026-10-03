@@ -18,11 +18,6 @@ public class PersonnelUpsertService
         _db = db;
     }
 
-    /// <summary>
-    /// Idempotent upsert. Sending the same payload twice (a retry after a timeout, a resend after a crash)
-    /// yields Inserted/Updated then Duplicate, never a second write. Concurrent requests for the same PerId or
-    /// the same NationalCode are serialized with key-range U-locks, so "read, compare, write" is atomic.
-    /// </summary>
     public async Task<UpsertResult> ProcessAsync(PersonnelRecord record, Guid? correlationId)
     {
         var validationResult = _validator.Validate(record);
@@ -35,19 +30,12 @@ public class PersonnelUpsertService
             return new UpsertResult(ReceiveStatus.ValidationFailed);
         }
 
-        // With EnableRetryOnFailure, a user transaction must run inside the execution strategy. If a transient
-        // error hits *after* the commit reached the server, the whole block re-runs. The second pass finds the
-        // row already written and returns Duplicate, so the retry is harmless.
         var strategy = _db.Database.CreateExecutionStrategy();
         return await strategy.ExecuteAsync(async () =>
         {
             _db.ChangeTracker.Clear();
             await using var tx = await _db.Database.BeginTransactionAsync(IsolationLevel.ReadCommitted);
 
-            // UPDLOCK + HOLDLOCK = an update-intent key-range lock held to the end of the transaction. A second
-            // request for the same PerId blocks here until we commit, then sees our result (no lost update and
-            // no double insert). U-locks are incompatible with each other, so two same-key requests can't deadlock
-            // the way two S-locks upgrading to X would.
             var existing = await _db.Personnel
                 .FromSqlInterpolated($"SELECT * FROM dbo.Personnel WITH (UPDLOCK, HOLDLOCK) WHERE PerId = {record.PerId}")
                 .SingleOrDefaultAsync();
@@ -60,9 +48,6 @@ public class PersonnelUpsertService
 
             if (conflictingPerId is not null)
             {
-                // Two PerIds sharing one national code = the same human twice. Refuse; a person must decide
-                // (re-hire with new PerId? typo in source?). UX_Personnel_NationalCode enforces the same rule
-                // in the database, in case a future code path forgets this check.
                 AddLog(record.PerId, ReceiveStatus.RejectedNationalCodeConflict, null,
                     $"کد ملی {record.NationalCode} متعلق به PerId {conflictingPerId} است؛ رکورد پذیرفته نشد.", correlationId);
                 await _db.SaveChangesAsync();
