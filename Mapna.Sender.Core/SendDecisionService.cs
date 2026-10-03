@@ -16,9 +16,9 @@ public class SendDecisionService
         _lastSentByPerId = lastSentByPerId;
     }
 
-    public static async Task<Dictionary<int, SendState>> LoadStatesAsync(LogDbContext logsDb, CancellationToken cancellationToken)
+    public static async Task<Dictionary<int, SendState>> LoadStatesAsync(LogDbContext db, CancellationToken cancellationToken)
     {
-        var states = await logsDb.SendStates.AsNoTracking().ToListAsync(cancellationToken);
+        var states = await db.SendStates.AsNoTracking().ToListAsync(cancellationToken);
         return states.ToDictionary(x => x.PerId);
     }
 

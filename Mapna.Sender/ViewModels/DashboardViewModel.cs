@@ -125,7 +125,9 @@ public partial class DashboardViewModel : ObservableObject
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsBusy), nameof(IsIdle), nameof(IsPaused), nameof(IsPreparing), nameof(ShowPauseButton), nameof(ShowContinueButton),
         nameof(StateSeverity), nameof(StateSymbol), nameof(ShowResumeOffer), nameof(ShowEnvironmentRetry))]
-    [NotifyCanExecuteChangedFor(nameof(StartCommand), nameof(PauseCommand), nameof(ContinueCommand), nameof(StopCommand), nameof(ResumePreviousCommand), nameof(DiscardPreviousCommand))]
+
+    [NotifyCanExecuteChangedFor(nameof(StartCommand), nameof(PauseCommand), nameof(ContinueCommand), nameof(StopCommand),
+    nameof(ResumePreviousCommand), nameof(DiscardPreviousCommand), nameof(RetryFailedCommand))]
     public partial RunState State { get; set; } = RunState.Idle;
 
     [ObservableProperty] public partial string StateText { get; set; } = "آماده";
@@ -183,8 +185,9 @@ public partial class DashboardViewModel : ObservableObject
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ShowEnvironmentRetry))]
-    [NotifyCanExecuteChangedFor(nameof(StartCommand), nameof(ResumePreviousCommand))]
+    [NotifyCanExecuteChangedFor(nameof(StartCommand), nameof(ResumePreviousCommand), nameof(RetryFailedCommand))]
     public partial bool IsEnvironmentReady { get; set; }
+
 
     [ObservableProperty] [NotifyPropertyChangedFor(nameof(ShowEnvironmentRetry))] public partial bool IsCheckingEnvironment { get; set; }
 
@@ -218,6 +221,51 @@ public partial class DashboardViewModel : ObservableObject
     public ISeries[] ThroughputSeries { get; }
     public Axis[] XAxes { get; }
     public Axis[] YAxes { get; }
+
+    private bool CanStart() => IsIdle && IsEnvironmentReady;
+
+    [RelayCommand(CanExecute = nameof(CanStart))]
+    private Task StartAsync() => RunAsync(resumeRunId: null);
+
+    private bool CanResumePrevious() => IsIdle && IsEnvironmentReady && ResumableRun is not null;
+
+    [RelayCommand(CanExecute = nameof(CanResumePrevious))]
+    private Task ResumePreviousAsync() => RunAsync(ResumableRun!.RunId);
+
+    private bool CanDiscardPrevious() => IsIdle && ResumableRun is not null;
+
+    [RelayCommand]
+    private void SetFilter(ResultFilter filter) => ActiveFilter = filter;
+
+    [RelayCommand]
+    private void CloseDetail() => SelectedResult = null;
+
+    private static (string Title, string Message) Describe(Exception ex) => ex switch
+    {
+        ConcurrentRunDetectedException => ("اجرای هم‌زمان", ex.Message),
+        SyncConfigurationException => ("پیکربندی نامعتبر", ex.Message),
+        SchemaOutOfDateException => ("ساختار پایگاه‌داده به‌روز نیست", ex.Message),
+        ReceiverConfigurationException => ("سرویس دریافت‌کننده درخواست‌ها را رد می‌کند", ex.Message + " اجرا متوقف شد و قابل ادامه است."),
+        RunLockLostException => ("قفل اجرا از دست رفت", ex.Message),
+        _ => ("همگام‌سازی متوقف شد", $"{ex.Message}\nپیشرفت تا این لحظه ذخیره شده و قابل ادامه است.")
+    };
+
+    private bool IsVisible(RecordResultItem item) =>
+       item.Matches(ActiveFilter) &&
+       (string.IsNullOrWhiteSpace(SearchText) || item.SearchKey.Contains(SearchText.Trim().ToLowerInvariant(), StringComparison.Ordinal));
+
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasRetryable))]
+    [NotifyCanExecuteChangedFor(nameof(RetryFailedCommand))]
+    public partial Guid? RetryableRunId { get; set; }
+    public bool HasRetryable => RetryableRunId is not null;
+
+    private bool CanRetryFailed() => IsIdle && IsEnvironmentReady && RetryableRunId is not null;
+
+
+
+
 
     public async Task InitializeAsync()
     {
@@ -257,27 +305,99 @@ public partial class DashboardViewModel : ObservableObject
     {
         try
         {
+            //ResumableRun = await Task.Run(() => _staging.FindResumableRunAsync(CancellationToken.None));
             ResumableRun = await Task.Run(() => _staging.FindResumableRunAsync(CancellationToken.None));
+
+            var last = (await Task.Run(() => _staging.GetRecentRunsAsync(1, CancellationToken.None))).FirstOrDefault();
+            RetryableRunId = last is { FailedCount: > 0, Status: RunStatus.Completed or RunStatus.CompletedWithFailures }
+                ? last.RunId
+                : null;
         }
         catch (Exception ex)
         {
             _logger.Warning(ex, "Could not check for a resumable run");
             ResumableRun = null;
+            RetryableRunId = null;
+        }
+    }
+   
+
+    private async Task RunAsync(Guid? resumeRunId, Guid? retryFailedOfRunId = null)
+    {
+        ResetRun();
+        State = RunState.Preparing;
+        StateText = resumeRunId is null ? "در حال آماده‌سازی" : "در حال ادامه‌ی اجرای قبلی";
+        IsBannerOpen = false;
+        ResumableRun = null;
+        RetryableRunId = null;
+
+        if (resumeRunId is { } rid)
+            await PreloadFinishedItemsAsync(rid);
+
+        _cts = new CancellationTokenSource();
+        _pause = new PauseTokenSource();
+        var cancellationToken = _cts.Token;
+        var pauseToken = _pause.Token;
+        var orchestrator = _services.GetRequiredService<SyncOrchestrator>();
+        var sink = new QueueProgress(_inbox);
+
+        _runClock.Restart();
+        _uiTimer.Start();
+        try
+        {
+            await Task.Run(() => orchestrator.RunAsync(sink, cancellationToken, resumeRunId, pauseToken, retryFailedOfRunId), CancellationToken.None);
+            DrainInbox();
+
+            if (retryFailedOfRunId is not null) StateText = "در حال ارسال مجدد ناموفق‌ها";
+
+            var withFailures = FailedCount > 0;
+            EtaText = "—";
+            State = withFailures ? RunState.CompletedWithFailures : RunState.Completed;
+            StateText = withFailures ? "تکمیل با خطا" : "تکمیل شد";
+            PhaseText = $"{Processed:N0} رکورد در {Display.Duration(_runClock.Elapsed)} پردازش شد.";
+            _notifications.Show(
+                withFailures ? "همگام‌سازی با خطا تمام شد" : "همگام‌سازی کامل شد",
+                $"ارسال: {SentCount:N0} • بدون تغییر: {DuplicateCount:N0} • ناموفق: {FailedCount:N0}",
+                withFailures ? NotificationKind.Warning : NotificationKind.Success,
+                forceToast: true);
+            if (withFailures)
+                ActiveFilter = ResultFilter.Failed;
+        }
+        catch (OperationCanceledException)
+        {
+            DrainInbox();
+            State = RunState.Stopped;
+            StateText = "متوقف شد";
+            PhaseText = "اجرا توسط کاربر متوقف شد. نتایج ذخیره شده و می‌توانید بعداً آن را ادامه دهید.";
+        }
+        catch (Exception ex)
+        {
+            DrainInbox();
+            State = RunState.Failed;
+            StateText = "خطا";
+            var (title, message) = Describe(ex);
+            PhaseText = title;
+            ShowBanner(title, message, InfoBarSeverity.Error);
+            _notifications.Show(title, message, NotificationKind.Error, forceToast: true);
+            if (ex is not (ConcurrentRunDetectedException or SyncConfigurationException or SchemaOutOfDateException or ReceiverConfigurationException))
+                _logger.Error(ex, "Sync run failed");
+        }
+        finally
+        {
+            _uiTimer.Stop();
+            _runClock.Stop();
+            _cts.Dispose();
+            _cts = null;
+            _pause = null;
+            await RefreshResumableAsync();
         }
     }
 
 
-    private bool CanStart() => IsIdle && IsEnvironmentReady;
 
-    [RelayCommand(CanExecute = nameof(CanStart))]
-    private Task StartAsync() => RunAsync(resumeRunId: null);
+    [RelayCommand(CanExecute = nameof(CanRetryFailed))]
+    private Task RetryFailedAsync() => RunAsync(resumeRunId: null, retryFailedOfRunId: RetryableRunId);
 
-    private bool CanResumePrevious() => IsIdle && IsEnvironmentReady && ResumableRun is not null;
-
-    [RelayCommand(CanExecute = nameof(CanResumePrevious))]
-    private Task ResumePreviousAsync() => RunAsync(ResumableRun!.RunId);
-
-    private bool CanDiscardPrevious() => IsIdle && ResumableRun is not null;
 
     [RelayCommand(CanExecute = nameof(CanDiscardPrevious))]
     private async Task DiscardPreviousAsync()
@@ -327,11 +447,7 @@ public partial class DashboardViewModel : ObservableObject
         PhaseText = "نتایج تا این لحظه ذخیره می‌شوند؛ اجرا بعداً قابل ادامه است.";
     }
 
-    [RelayCommand]
-    private void SetFilter(ResultFilter filter) => ActiveFilter = filter;
-
-    [RelayCommand]
-    private void CloseDetail() => SelectedResult = null;
+   
 
     [RelayCommand]
     private void CopyDetailJson()
@@ -370,85 +486,7 @@ public partial class DashboardViewModel : ObservableObject
     }
 
 
-    private async Task RunAsync(Guid? resumeRunId)
-    {
-        if (IsBusy) return;
-
-        ResetRun();
-        State = RunState.Preparing;
-        StateText = resumeRunId is null ? "در حال آماده‌سازی" : "در حال ادامه‌ی اجرای قبلی";
-        IsBannerOpen = false;
-        ResumableRun = null;
-
-        if (resumeRunId is { } rid)
-            await PreloadFinishedItemsAsync(rid);
-
-        _cts = new CancellationTokenSource();
-        _pause = new PauseTokenSource();
-        var cancellationToken = _cts.Token;
-        var pauseToken = _pause.Token;
-        var orchestrator = _services.GetRequiredService<SyncOrchestrator>();
-        var sink = new QueueProgress(_inbox);
-
-        _runClock.Restart();
-        _uiTimer.Start();
-        try
-        {
-            await Task.Run(() => orchestrator.RunAsync(sink, cancellationToken, resumeRunId, pauseToken), CancellationToken.None);
-            DrainInbox();
-
-            var withFailures = FailedCount > 0;
-            EtaText = "—";
-            State = withFailures ? RunState.CompletedWithFailures : RunState.Completed;
-            StateText = withFailures ? "تکمیل با خطا" : "تکمیل شد";
-            PhaseText = $"{Processed:N0} رکورد در {Display.Duration(_runClock.Elapsed)} پردازش شد.";
-            _notifications.Show(
-                withFailures ? "همگام‌سازی با خطا تمام شد" : "همگام‌سازی کامل شد",
-                $"ارسال: {SentCount:N0} • بدون تغییر: {DuplicateCount:N0} • ناموفق: {FailedCount:N0}",
-                withFailures ? NotificationKind.Warning : NotificationKind.Success,
-                forceToast: true);
-            if (withFailures)
-                ActiveFilter = ResultFilter.Failed;
-        }
-        catch (OperationCanceledException)
-        {
-            DrainInbox();
-            State = RunState.Stopped;
-            StateText = "متوقف شد";
-            PhaseText = "اجرا توسط کاربر متوقف شد. نتایج ذخیره شده و می‌توانید بعداً آن را ادامه دهید.";
-        }
-        catch (Exception ex)
-        {
-            DrainInbox();
-            State = RunState.Failed;
-            StateText = "خطا";
-            var (title, message) = Describe(ex);
-            PhaseText = title;
-            ShowBanner(title, message, InfoBarSeverity.Error);
-            _notifications.Show(title, message, NotificationKind.Error, forceToast: true);
-            if (ex is not (ConcurrentRunDetectedException or SyncConfigurationException or SchemaOutOfDateException or ReceiverConfigurationException))
-                _logger.Error(ex, "Sync run failed");
-        }
-        finally
-        {
-            _uiTimer.Stop();
-            _runClock.Stop();
-            _cts.Dispose();
-            _cts = null;
-            _pause = null;
-            await RefreshResumableAsync();
-        }
-    }
-
-    private static (string Title, string Message) Describe(Exception ex) => ex switch
-    {
-        ConcurrentRunDetectedException => ("اجرای هم‌زمان", ex.Message),
-        SyncConfigurationException => ("پیکربندی نامعتبر", ex.Message),
-        SchemaOutOfDateException => ("ساختار پایگاه‌داده به‌روز نیست", ex.Message),
-        ReceiverConfigurationException => ("سرویس دریافت‌کننده درخواست‌ها را رد می‌کند", ex.Message + " اجرا متوقف شد و قابل ادامه است."),
-        RunLockLostException => ("قفل اجرا از دست رفت", ex.Message),
-        _ => ("همگام‌سازی متوقف شد", $"{ex.Message}\nپیشرفت تا این لحظه ذخیره شده و قابل ادامه است.")
-    };
+    
 
     private async Task PreloadFinishedItemsAsync(Guid runId)
     {
@@ -623,11 +661,7 @@ public partial class DashboardViewModel : ObservableObject
         EtaText = avg > 0.01 && remaining > 0 ? Display.Duration(TimeSpan.FromSeconds(remaining / avg)) : "—";
     }
 
-
-    private bool IsVisible(RecordResultItem item) =>
-        item.Matches(ActiveFilter) &&
-        (string.IsNullOrWhiteSpace(SearchText) || item.SearchKey.Contains(SearchText.Trim().ToLowerInvariant(), StringComparison.Ordinal));
-
+       
     private void RefreshFilter()
     {
         ResultsView.Refresh();

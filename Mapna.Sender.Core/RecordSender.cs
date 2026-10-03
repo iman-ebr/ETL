@@ -54,8 +54,6 @@ public class RecordSender
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            // The user cancelled. The request may or may not have reached the receiver; the record stays Pending
-            // and is resent on resume. That's safe: the receiver's upsert is idempotent (it answers "Duplicate").
             throw;
         }
         catch (BrokenCircuitException)
@@ -64,8 +62,6 @@ public class RecordSender
         }
         catch (Exception ex) when (ex is HttpRequestException or OperationCanceledException or Polly.Timeout.TimeoutRejectedException)
         {
-            // OperationCanceledException without user cancellation = a timeout. The old code rethrew EVERY OCE,
-            // so one slow request aborted the whole run and labelled it "cancelled by user".
             throw new TransientSendException($"خطای شبکه/مهلت زمانی پس از تلاش‌های مجدد: {ex.Message}", ex);
         }
 
@@ -75,6 +71,11 @@ public class RecordSender
             if (response.IsSuccessStatusCode)
             {
                 var receiverStatus = await TryReadReceiverStatusAsync(response, cancellationToken);
+
+                if (receiverStatus is not ("Inserted" or "Updated" or "Duplicate"))
+                    throw new TransientSendException($"پاسخ 2xx بدون تأیید معتبر Receiver (status={receiverStatus ?? "null"}).");
+
+
                 return new SendOutcome(SendStatus.Sent, receiverStatus is null ? null : $"Receiver: {receiverStatus}",
                     decision.ChangedFields, decision.PayloadSnapshot, ConfirmedByReceiver: true, CorrelationId: correlationId);
             }
@@ -98,7 +99,6 @@ public class RecordSender
             if (code >= 500)
                 throw new TransientSendException(reason);
 
-            // 400 / 409 / 422 / other 4xx: this record is permanently rejected as it stands. Record it and move on.
             return new SendOutcome(SendStatus.SendFailed, DescribeRejection(code, body) ?? reason, null, decision.PayloadSnapshot, CorrelationId: correlationId);
         }
     }

@@ -39,8 +39,8 @@ public class AppSettings
         if (string.IsNullOrWhiteSpace(AppConnectionString)) errors.Add("AppDatabase:ConnectionString خالی است.");
         if (!Uri.TryCreate(ReceiverApiBaseUrl, UriKind.Absolute, out var uri) || (uri.Scheme != Uri.UriSchemeHttps && uri.Scheme != Uri.UriSchemeHttp))
             errors.Add("ReceiverApi:BaseUrl یک آدرس http/https معتبر نیست.");
-        //if (string.IsNullOrWhiteSpace(ReceiverApiKey) || ReceiverApiKey.StartsWith("CHANGE-ME", StringComparison.OrdinalIgnoreCase))
-        //    errors.Add("ReceiverApi:ApiKey تنظیم نشده است.");
+        if (string.IsNullOrWhiteSpace(ReceiverApiKey) || ReceiverApiKey.StartsWith("CHANGE-ME", StringComparison.OrdinalIgnoreCase))
+            errors.Add("ReceiverApi:ApiKey تنظیم نشده است.");
         return errors;
     }
 

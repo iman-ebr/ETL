@@ -99,6 +99,10 @@
                     Content="شروع انتقال داده ها"
                     Icon="{ui:SymbolIcon Play24}"
                     Visibility="{Binding IsIdle, Converter={StaticResource BoolToVis}}" />
+                <ui:Button Content="ارسال مجدد ناموفق‌ها"
+                    Command="{Binding RetryFailedCommand}"
+                    Visibility="{Binding HasRetryable, Converter={StaticResource BoolToVis}}"
+                    AutomationProperties.AutomationId="RetryFailed" />
                 <ui:Button
                     MinWidth="120"
                     Height="38"

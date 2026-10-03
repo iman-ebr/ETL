@@ -290,6 +290,20 @@ public sealed class SqlStagingRepository
             return rows.Select(r => r.ToModel()).ToList();
         }, cancellationToken);
 
+
+
+    public Task<List<int>> GetFailedPerIdsAsync(Guid runId, CancellationToken cancellationToken) =>
+    _resiliencePolicy.ExecuteAsync(async ct =>
+    {
+        await using var connection = CreateConnection();
+        await connection.OpenAsync(ct);
+        var PerIds = await connection.QueryAsync<int>(new CommandDefinition(
+            "SELECT PerId FROM dbo.SyncItems WHERE RunId = @RunId AND Status IN ('ValidationFailed','SendFailed') ORDER BY PerId;",
+            new { RunId = runId }, cancellationToken: ct));
+        return PerIds.ToList();
+    }, cancellationToken);
+
+
     private static string? Fit(string? value, int max) =>
         value is null || value.Length <= max ? value : value[..(max - 1)] + "…";
 

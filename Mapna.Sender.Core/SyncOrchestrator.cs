@@ -55,7 +55,11 @@ public class SyncOrchestrator
 
     internal Func<HttpMessageHandler>? PrimaryHttpHandler { get; init; }
 
-    public async Task RunAsync(IProgress<SyncProgress> progress, CancellationToken cancellationToken, Guid? resumeRunId = null, PauseToken pauseToken = default)
+    public async Task RunAsync(IProgress<SyncProgress> progress, 
+        CancellationToken cancellationToken, 
+        Guid? resumeRunId = null, 
+        PauseToken pauseToken = default,
+        Guid? retryFailedOfRunId = null)
     {
         var configErrors = _settings.Validate();
         if (configErrors.Count > 0)
@@ -176,9 +180,11 @@ public class SyncOrchestrator
         }
         finally
         {
-            progress.Report(new SyncProgress { Phase = SyncPhase.Finalizing, RunId = ctx.RunId, Total = ctx.Total });
+            var lockOk = true;
+            try { await runLock.EnsureHeldAsync(CancellationToken.None); }
+            catch (RunLockLostException) { lockOk = false; _logger.Warning("Run lock lost; skipping final flush/close for run {RunId}", ctx.RunId); }
 
-            if (buffer.Count > 0)
+            if (lockOk && buffer.Count > 0)
             {
                 try { await _staging.FlushResultsAsync(ctx.RunId, buffer, CancellationToken.None); }
                 catch (Exception ex)
@@ -188,13 +194,11 @@ public class SyncOrchestrator
                 }
             }
 
-            try { await _staging.CompleteRunAsync(ctx.RunId, finalStatus, stopReason, CancellationToken.None); }
-            catch (Exception ex) { _logger.Warning(ex, "Could not mark run {RunId} as {Status}; it will be offered for resume", ctx.RunId, finalStatus); }
-
-            if (stopReason is not null)
-                _logger.LogRunInterrupted(ctx.RunId, stopReason, ctx.ProcessedTotal, ctx.Total);
-            else
-                _logger.LogRunCompleted(ctx.RunId, ctx.Sent, ctx.Duplicate, ctx.Failed, runWatch.Elapsed);
+            if (lockOk)
+            {
+                try { await _staging.CompleteRunAsync(ctx.RunId, finalStatus, stopReason, CancellationToken.None); }
+                catch (Exception ex) { _logger.Warning(ex, "Could not mark run {RunId} as {Status}; it will be offered for resume", ctx.RunId, finalStatus); }
+            }
         }
     }
 
@@ -229,8 +233,28 @@ public class SyncOrchestrator
         }
     }
 
-    private async Task<PreparedRun> PrepareRunAsync(Guid? resumeRunId, SourceSnapshot source, CancellationToken cancellationToken)
+    private async Task<PreparedRun> PrepareRunAsync(Guid? resumeRunId, SourceSnapshot source, CancellationToken cancellationToken,Guid? retryFailedOfRunId = null)
     {
+        if (retryFailedOfRunId is { } failedRunId)
+        {
+            var failedIds = await _staging.GetFailedPerIdsAsync(failedRunId, cancellationToken);
+            if (failedIds.Count == 0)
+                throw new InvalidOperationException("برای این اجرا رکورد ناموفقی وجود ندارد.");
+
+            var retryItems = failedIds.Select(id => (id, source.Names.GetValueOrDefault(id, ""))).ToList();
+            var retryRun = await _staging.StartRunAsync(retryItems.Count, cancellationToken);
+            try { await _staging.StageBatchAsync(retryRun.RunId, retryItems, cancellationToken); }
+            catch (Exception ex)
+            {
+                var closedAs = ex is OperationCanceledException ? RunStatus.Cancelled : RunStatus.Crashed;
+                try { await _staging.CompleteRunAsync(retryRun.RunId, closedAs, $"Staging failed: {ex.Message}", CancellationToken.None); }
+                catch (Exception completeEx) { _logger.Warning(completeEx, "Could not close run {RunId}", retryRun.RunId); }
+                throw;
+            }
+            _logger.LogRunStarted(retryRun.RunId, retryItems.Count);
+            return new PreparedRun(retryRun.RunId, retryItems.Count, failedIds.Order().ToList(), new RunBaseline(0, 0, 0, 0));
+        }
+
         var stageItems = source.AllPerIds.Select(id => (id, source.Names.GetValueOrDefault(id, ""))).ToList();
 
         if (resumeRunId is { } existingId &&
