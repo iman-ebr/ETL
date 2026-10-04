@@ -9,9 +9,6 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers(options =>
 {
-    // PersonnelValidator is the single validation contract. Without this, MVC's implicit [Required] on non-nullable
-    // strings would answer a null field with an automatic 400 ProblemDetails, a second rule set with a different
-    // response shape that the sender's validator doesn't know about.
     options.SuppressImplicitRequiredAttributeForNonNullableReferenceTypes = true;
 });
 builder.Services.AddEndpointsApiExplorer();
@@ -78,8 +75,6 @@ builder.Services.AddRateLimiter(options =>
 
 var app = builder.Build();
 
-// Refuse to serve against a schema that is behind the code. Writing with a stale schema is how silent
-// corruption starts. Migrations are applied by a deliberate deployment step, never implicitly here.
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<LogDbContext>();
@@ -111,4 +106,3 @@ app.MapControllers();
 await app.RunAsync();
 return 0;
 
-public partial class Program;

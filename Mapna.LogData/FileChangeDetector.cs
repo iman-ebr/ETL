@@ -28,7 +28,6 @@ public static class FieldChangeDetector
         }
 
         return changed;
-
     }
 
     private static bool AreEqual(object? a,object? b)

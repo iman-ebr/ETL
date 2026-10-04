@@ -24,15 +24,6 @@ public class PersonnelController : ControllerBase
         _logger = logger;
     }
 
-    /// <summary>
-    /// Status codes are a contract with the sender's retry logic:
-    ///   200 = applied or already identical (safe to record as sent)
-    ///   409 = permanent business conflict (don't retry)
-    ///   422 = permanent validation failure (don't retry)
-    ///   500 = unexpected; the sender retries a bounded number of times
-    /// HttpContext.RequestAborted is deliberately NOT passed down: once we start a write we finish it,
-    /// so a client disconnect never leaves the outcome half-way.
-    /// </summary>
     [HttpPost]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
@@ -53,7 +44,6 @@ public class PersonnelController : ControllerBase
         }
         catch (DbUpdateException ex) when (PersonnelUpsertService.IsUniqueViolation(ex))
         {
-            // Only reachable if a writer bypassed the locking path. The DB index is the last line of defence.
             _logger.LogWarning(ex, "Unique constraint rejected PerId {PerId} (correlation {CorrelationId})", record.PerId, correlationId);
             return Conflict(new { perId = record.PerId, status = nameof(ReceiveStatus.RejectedNationalCodeConflict) });
         }
