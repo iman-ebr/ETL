@@ -1,4 +1,4 @@
-# Mapna Personnel Sync (ETL)
+# Personnel Sync (ETL)
 
 Synchronizes personnel records from the source SQL Server (`PERSONEL_Sender`) to the destination through an
 authenticated HTTP API. The goal is a correct, auditable, non-destructive sync: nothing lost, nothing duplicated,
