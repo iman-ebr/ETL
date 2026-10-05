@@ -1,4 +1,4 @@
-# Mapna ETL — Resilient Personnel Synchronization System
+# Personnel ETL — Resilient Personnel Synchronization System
 
 [![.NET](https://img.shields.io/badge/.NET-10.0-512BD4?logo=dotnet)](https://dotnet.microsoft.com/)
 [![SQL Server](https://img.shields.io/badge/Database-SQL%20Server-CC2927?logo=microsoftsqlserver)](https://www.microsoft.com/sql-server)
