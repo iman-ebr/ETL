@@ -29,11 +29,10 @@ public class SendDecisionService
         var validationResult = _validator.Validate(record);
         if (!validationResult.IsValid)
         {
-            var reasons = string.Join("; ", validationResult.Errors.Select(e => e.ErrorMessage));
             return new SendDecision
             {
                 Action = SendAction.SkipValidationFailed,
-                Reason = reasons,
+                Reason = string.Join("; ", validationResult.Errors.Select(e => e.ErrorMessage)),
                 PayloadSnapshot = currentSnapshot
             };
         }

@@ -1,7 +1,3 @@
--- 002: atomic result flush (SendLogs + SendStates + SyncItems in ONE transaction).
--- Created automatically by SqlStagingRepository.EnsureSchemaAsync; kept here for DBA review.
--- Requires EF migration AddSendStatesAndAuditCorrelation (SendStates table, SendLogs.RunId/CorrelationId).
-
 IF TYPE_ID(N'dbo.SyncResultTableType') IS NULL
 BEGIN
     CREATE TYPE dbo.SyncResultTableType AS TABLE
@@ -28,16 +24,15 @@ BEGIN
     SET XACT_ABORT ON;
     BEGIN TRANSACTION;
 
-    -- 1) Audit trail. Idempotent on CorrelationId (unique filtered index IX_SendLogs_CorrelationId).
     INSERT INTO dbo.SendLogs (PerId, OccurredAtUtc, Status, Reason, ChangedFields, PayloadSnapshot, RunId, CorrelationId)
     SELECT i.PerId, i.OccurredAtUtc, i.Status, i.Reason, i.ChangedFields, i.PayloadSnapshot, @RunId, i.CorrelationId
     FROM @Items i
     WHERE NOT EXISTS (SELECT 1 FROM dbo.SendLogs l WHERE l.CorrelationId = i.CorrelationId);
 
-    -- 2) Decision state. Only a receiver-confirmed send may move the snapshot forward.
-    --    Duplicate / ValidationFailed leave the state exactly as it was (same as before the refactor).
     MERGE dbo.SendStates WITH (HOLDLOCK) AS t
-    USING (SELECT * FROM @Items WHERE Status IN (N'Sent', N'SendFailed')) AS s
+        USING (SELECT * FROM @Items
+        WHERE Status IN (N'Sent', N'SendFailed')
+        OR (Status = N'Duplicate' AND ConfirmedByReceiver = 1)) AS s
         ON t.PerId = s.PerId
     WHEN MATCHED THEN UPDATE SET
         t.LastStatus       = s.Status,
@@ -51,7 +46,6 @@ BEGIN
                 CASE WHEN s.ConfirmedByReceiver = 1 THEN SYSUTCDATETIME() END,
                 s.Status, SYSUTCDATETIME());
 
-    -- 3) Run item status + counters.
     MERGE dbo.SyncItems AS target
     USING @Items AS source
         ON target.RunId = @RunId AND target.PerId = source.PerId
