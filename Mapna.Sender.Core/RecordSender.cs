@@ -14,7 +14,8 @@ public sealed record SendOutcome(
     string? ChangedFields,
     string PayloadSnapshot,
     bool ConfirmedByReceiver = false,
-    Guid? CorrelationId = null);
+    Guid? CorrelationId = null,
+    string? ReceiverStatus = null);
 
 public sealed class TransientSendException(string message, Exception? inner = null) : Exception(message, inner);
 
@@ -70,14 +71,19 @@ public class RecordSender
             var code = (int)response.StatusCode;
             if (response.IsSuccessStatusCode)
             {
-                var receiverStatus = await TryReadReceiverStatusAsync(response, cancellationToken);
+                var confirmation = await TryReadConfirmationAsync(response, cancellationToken);
 
-                if (receiverStatus is not ("Inserted" or "Updated" or "Duplicate"))
-                    throw new TransientSendException($"پاسخ 2xx بدون تأیید معتبر Receiver (status={receiverStatus ?? "null"}).");
+                if (confirmation is null || confirmation.PerId != record.PerId)
+                    throw new TransientSendException(
+                        $"پاسخ {code} از Receiver معتبر نبود (JSON تأییدیه نیست یا perId با رکورد نمی‌خواند). احتمالاً پراکسی یا portal میانی است.");
 
+                var receiverReason = $"Receiver: {confirmation.Status}";
 
-                return new SendOutcome(SendStatus.Sent, receiverStatus is null ? null : $"Receiver: {receiverStatus}",
-                    decision.ChangedFields, decision.PayloadSnapshot, ConfirmedByReceiver: true, CorrelationId: correlationId);
+                return confirmation.Status == nameof(ReceiveStatus.Duplicate)
+                    ? new SendOutcome(SendStatus.Duplicate, receiverReason, null, decision.PayloadSnapshot,
+                        ConfirmedByReceiver: true, CorrelationId: correlationId, ReceiverStatus: confirmation.Status)
+                    : new SendOutcome(SendStatus.Sent, receiverReason, confirmation.ChangedFields, decision.PayloadSnapshot,
+                        ConfirmedByReceiver: true, CorrelationId: correlationId, ReceiverStatus: confirmation.Status);
             }
 
             var body = await SafeReadBodyAsync(response, cancellationToken);
@@ -103,6 +109,36 @@ public class RecordSender
         }
     }
 
+    private sealed record ReceiverConfirmation(int PerId, string Status, string? ChangedFields);
+
+    private async Task<ReceiverConfirmation?> TryReadConfirmationAsync(HttpResponseMessage response, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var json = JObject.Parse(await response.Content.ReadAsStringAsync(cancellationToken));
+            if (json["perId"]?.Type != JTokenType.Integer) return null;
+            if (json["status"]?.Type != JTokenType.String) return null;
+
+            var status = json["status"]?.Value<string>();
+            if (status is not (nameof(ReceiveStatus.Inserted)
+                or nameof(ReceiveStatus.Updated)
+                or nameof(ReceiveStatus.Duplicate)))
+                return null;
+
+            var changed = json["changedFields"]?.Type == JTokenType.String ? json["changedFields"]!.Value<string>() : null;
+
+            return new ReceiverConfirmation(json["perId"]!.Value<int>(), status, changed);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch
+        {
+            return null; 
+        }
+    }
+
     private static string? DescribeRejection(int code, string body)
     {
         try
@@ -115,19 +151,6 @@ public class RecordSender
                 (422, _) => "422 — سرور دریافت‌کننده رکورد را در اعتبارسنجی رد کرد.",
                 _ => null
             };
-        }
-        catch
-        {
-            return null;
-        }
-    }
-
-    private static async Task<string?> TryReadReceiverStatusAsync(HttpResponseMessage response, CancellationToken cancellationToken)
-    {
-        try
-        {
-            var json = await response.Content.ReadAsStringAsync(cancellationToken);
-            return JObject.Parse(json)["status"]?.ToString();
         }
         catch
         {
@@ -150,3 +173,5 @@ public class RecordSender
         }
     }
 }
+
+
