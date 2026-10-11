@@ -1,0 +1,6 @@
+﻿@WebService.Receiver_HostAddress = http://localhost:5250
+
+GET {{WebService.Receiver_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

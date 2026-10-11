@@ -1,0 +1,88 @@
+﻿using WebService.Contracts;
+using WebService.LogData;
+using Microsoft.EntityFrameworkCore;
+using Newtonsoft.Json;
+
+namespace WebService.Sender;
+
+public class SendDecisionService
+{
+    private readonly PersonnelValidator _validator;
+    private readonly IReadOnlyDictionary<int, SendState> _lastSentByPerId;
+
+    public SendDecisionService(IReadOnlyDictionary<int, SendState> lastSentByPerId)
+    {
+        _validator = new PersonnelValidator();
+        _lastSentByPerId = lastSentByPerId;
+    }
+
+    public static async Task<Dictionary<int, SendState>> LoadStatesAsync(LogDbContext db, CancellationToken cancellationToken)
+    {
+        var states = await db.SendStates.AsNoTracking().ToListAsync(cancellationToken);
+        return states.ToDictionary(x => x.PerId);
+    }
+
+    public static async Task<Dictionary<int, SendState>> LoadStatesAsync(LogDbContext db, IReadOnlyCollection<int> perIds, CancellationToken cancellationToken)
+    {
+        var result = new Dictionary<int, SendState>(perIds.Count);
+
+        foreach (var chunk in perIds.Distinct().Chunk(1000))
+        {
+            var ids = chunk;
+            var states = await db.SendStates.AsNoTracking().Where(x => ids.Contains(x.PerId)).ToListAsync(cancellationToken);
+            foreach (var s in states) result[s.PerId] = s;
+        }
+        return result;
+    }
+
+    public SendDecision Decide(PersonnelRecord record)
+    {
+        var currentSnapshot = JsonConvert.SerializeObject(record);
+
+        var validationResult = _validator.Validate(record);
+        if (!validationResult.IsValid)
+        {
+            return new SendDecision
+            {
+                Action = SendAction.SkipValidationFailed,
+                Reason = string.Join("; ", validationResult.Errors.Select(e => e.ErrorMessage)),
+                PayloadSnapshot = currentSnapshot
+            };
+        }
+
+        if (!_lastSentByPerId.TryGetValue(record.PerId, out var lastSent) ||
+            string.IsNullOrEmpty(lastSent.PayloadSnapshot))
+        {
+            return new SendDecision { Action = SendAction.Send, PayloadSnapshot = currentSnapshot };
+        }
+
+        PersonnelRecord? previousRecord;
+        try
+        {
+            previousRecord = JsonConvert.DeserializeObject<PersonnelRecord>(lastSent.PayloadSnapshot);
+        }
+        catch (JsonException)
+        {
+            previousRecord = null;
+        }
+
+        if (previousRecord is null)
+        {
+            return new SendDecision { Action = SendAction.Send, PayloadSnapshot = currentSnapshot };
+        }
+
+        var changedFields = FieldChangeDetector.GetChangedField(record, previousRecord, nameof(PersonnelRecord.PerId));
+
+        if (changedFields.Count == 0)
+        {
+            return new SendDecision { Action = SendAction.SkipDuplicate, PayloadSnapshot = currentSnapshot };
+        }
+
+        return new SendDecision
+        {
+            Action = SendAction.Send,
+            ChangedFields = string.Join(",", changedFields),
+            PayloadSnapshot = currentSnapshot
+        };
+    }
+}
