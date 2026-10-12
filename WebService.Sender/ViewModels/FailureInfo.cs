@@ -14,10 +14,6 @@ public enum FailureCategory
     Other
 }
 
-/// <summary>
-/// Turns the stored machine-ish reason into a category + a message a user can act on.
-/// The stored Reason is kept untouched (it is the audit trail); this is display-only.
-/// </summary>
 public static class FailureInfo
 {
     public static FailureCategory Classify(StagingItemStatus status, string? reason)
@@ -49,7 +45,6 @@ public static class FailureInfo
         _ => "سایر"
     };
 
-    /// <summary>What the operator should do. Retrying a record whose cause is not fixed only fails again.</summary>
     public static string Advice(FailureCategory c) => c switch
     {
         FailureCategory.NotSent => "اجرا پیش از رسیدن به این رکورد متوقف شد؛ ارسال مجدد آن را می‌فرستد.",
@@ -69,7 +64,6 @@ public static class FailureInfo
 
         if (string.IsNullOrWhiteSpace(reason)) return "دلیلی ثبت نشده است.";
 
-        // "Api responded with 400: {...}" -> readable Persian prefix, raw body kept after it.
         const string prefix = "Api responded with ";
         if (reason.StartsWith(prefix, StringComparison.Ordinal))
         {

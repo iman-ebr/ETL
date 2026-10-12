@@ -29,7 +29,6 @@ public sealed class RunSummary(StagingRun run)
     };
 }
 
-/// <summary>Past runs (dbo.SyncRuns) and their per-record results (dbo.SyncItems).</summary>
 public partial class HistoryViewModel : ObservableObject
 {
     private readonly SqlStagingRepository _staging;
@@ -46,7 +45,6 @@ public partial class HistoryViewModel : ObservableObject
         _reports = reports;
         _navigation = navigation;
 
-        // The retry button must follow the dashboard: disabled while a run is active, and the list/count refreshed after it.
         _dashboard.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName is nameof(DashboardViewModel.IsBusy) or nameof(DashboardViewModel.IsEnvironmentReady))
@@ -69,7 +67,6 @@ public partial class HistoryViewModel : ObservableObject
     [NotifyCanExecuteChangedFor(nameof(RetryOutstandingCommand))]
     public partial RunSummary? SelectedRun { get; set; }
 
-    /// <summary>Failed / never-sent records of the selected run that no later run has fixed.</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasOutstanding), nameof(RetryButtonText))]
     [NotifyCanExecuteChangedFor(nameof(RetryOutstandingCommand))]
@@ -102,7 +99,6 @@ public partial class HistoryViewModel : ObservableObject
             Runs.Clear();
             foreach (var run in runs) Runs.Add(new RunSummary(run));
             var reselect = keepRunId is { } id ? Runs.FirstOrDefault(r => r.Run.RunId == id) : null;
-            // Always a new RunSummary instance, so OnSelectedRunChanged fires and reloads items + outstanding count.
             SelectedRun = reselect ?? Runs.FirstOrDefault();
         }
         catch (Exception ex)
@@ -136,7 +132,7 @@ public partial class HistoryViewModel : ObservableObject
             var countTask = Task.Run(() => _staging.GetOutstandingCountAsync(value.Run.RunId, CancellationToken.None));
             var items = await itemsTask;
             var outstanding = await countTask;
-            if (SelectedRun != value) return;   // user clicked another run meanwhile
+            if (SelectedRun != value) return;  
             OutstandingCount = outstanding;
             var seq = 0;
             foreach (var item in items.OrderByDescending(i => i.UpdatedAtUtc))
@@ -151,7 +147,6 @@ public partial class HistoryViewModel : ObservableObject
     private bool CanRetryOutstanding() =>
         SelectedRun is { Run.Status: not RunStatus.Running } && OutstandingCount > 0 && _dashboard.IsIdle && _dashboard.IsEnvironmentReady;
 
-    /// <summary>Shows exactly what will be re-sent (and why it failed), then re-sends only that.</summary>
     [RelayCommand(CanExecute = nameof(CanRetryOutstanding))]
     private async Task RetryOutstandingAsync()
     {

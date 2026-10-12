@@ -19,7 +19,6 @@ public sealed class ExplorerRow
     public string SearchKey { get; init; } = string.Empty;
 }
 
-/// <summary>Read-only view of the source table, with each record's validation result, before anything is sent.</summary>
 public partial class ExplorerViewModel : ObservableObject
 {
     private readonly AppSettings _settings;

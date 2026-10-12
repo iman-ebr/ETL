@@ -95,7 +95,6 @@ public partial class SettingsViewModel : ObservableObject
         OnPropertyChanged(nameof(IsDarkTheme));
     }
 
-    /// <summary>Server and database only; credentials in a connection string are never shown.</summary>
     private static string Describe(string connectionString)
     {
         try

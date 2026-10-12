@@ -21,7 +21,6 @@ public sealed class OutstandingRow
 
 public sealed record CategoryCount(string Text, int Count);
 
-/// <summary>Content of the "run report" dialog: what failed, why, and how many will be re-sent.</summary>
 public sealed partial class RunReportViewModel : ObservableObject
 {
     private readonly IFileExportService _export;
@@ -40,7 +39,6 @@ public sealed partial class RunReportViewModel : ObservableObject
         DuplicateCount = run.DuplicateCount;
         FailedCount = run.FailedCount;
         OutstandingCount = outstanding.Count;
-        // Failed in this run but delivered by a later retry: shown so the numbers add up.
         var outstandingFailed = outstanding.Count(o => o.Status != StagingItemStatus.Pending);
         ResolvedLaterCount = Math.Max(0, run.FailedCount - outstandingFailed);
         NotSentCount = outstanding.Count(o => o.Status == StagingItemStatus.Pending);
@@ -64,7 +62,6 @@ public sealed partial class RunReportViewModel : ObservableObject
             .Select(g => new CategoryCount(FailureInfo.CategoryText(g.Key), g.Count()))
             .ToList();
 
-        // Records that retrying cannot fix by itself (the data must be corrected first).
         NeedsSourceFixCount = Rows.Count(r => r.Category is FailureCategory.InvalidData or FailureCategory.DuplicateInSource
             or FailureCategory.NationalCodeConflict or FailureCategory.RemovedFromSource);
 

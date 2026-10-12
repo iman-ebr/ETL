@@ -13,10 +13,6 @@ public enum ThemePreference
     Dark
 }
 
-/// <summary>
-/// Follows the Windows light/dark setting by default (SystemThemeWatcher), with a manual override
-/// persisted per user in %LOCALAPPDATA%\WebService.Sender\ui.json.
-/// </summary>
 public sealed class AppThemeService
 {
     private static readonly string PreferenceFile =

@@ -38,7 +38,6 @@ public static class Display
         _ => status.ToString()
     };
 
-    /// <summary>Solar Hijri (Jalali) date/time. The fa-IR culture uses PersianCalendar in .NET.</summary>
     public static string Date(DateTime utc) => utc.ToLocalTime().ToString("yyyy/MM/dd  HH:mm", Persian);
 
     public static string Time(DateTime local) => local.ToString("HH:mm:ss", CultureInfo.InvariantCulture);
@@ -75,7 +74,6 @@ public static class Display
     }
 }
 
-/// <summary>One row of a sync result grid (live dashboard or history).</summary>
 public sealed class RecordResultItem
 {
     public int Sequence { get; init; }
@@ -91,7 +89,6 @@ public sealed class RecordResultItem
 
     public string StatusText => Display.Status(Status);
 
-    /// <summary>The audit log stores the receiver's answer machine-readably ("Receiver: Updated"); show it in Persian.</summary>
     public string? ReasonText => Reason switch
     {
         "Receiver: Inserted" => "فرد جدید در مقصد ثبت شد",
@@ -109,7 +106,6 @@ public sealed class RecordResultItem
 
     public string ChangedFieldsText => string.Join("، ", ChangedFieldLabels);
 
-    /// <summary>Precomputed once so filtering 100k rows on each keystroke doesn't allocate.</summary>
     public string SearchKey { get; private init; } = string.Empty;
 
     public bool Matches(ResultFilter filter) => filter switch
@@ -166,7 +162,6 @@ public sealed record FieldRow(string Name, string Label, string Value, bool IsCh
     public bool IsEmpty => Value == "—";
 }
 
-/// <summary>Content of the record detail panel: every field of the payload, with the changed ones highlighted.</summary>
 public sealed class RecordDetailViewModel
 {
     public required RecordResultItem Item { get; init; }

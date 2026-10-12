@@ -10,7 +10,6 @@ public interface IDialogService
     Task<bool> ConfirmAsync(string title, string message, string primaryText, string closeText = "انصراف");
 }
 
-/// <summary>Fluent (WPF-UI) message box instead of the legacy Win32 MessageBox.</summary>
 public sealed class DialogService : IDialogService
 {
     public async Task<bool> ConfirmAsync(string title, string message, string primaryText, string closeText = "انصراف")

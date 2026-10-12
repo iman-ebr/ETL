@@ -17,7 +17,6 @@ public enum NotificationKind
 
 public interface INotificationService
 {
-    /// <summary>In-app snackbar always; a native Windows toast too when the window isn't in the foreground (or <paramref name="forceToast"/>).</summary>
     void Show(string title, string message, NotificationKind kind, bool forceToast = false);
 }
 
@@ -60,7 +59,6 @@ public sealed class NotificationService(ISnackbarService snackbar, IConfiguratio
         }
         catch (Exception ex)
         {
-            // Toasts can be disabled by policy (Focus Assist, GPO). Never let that break a sync.
             logger.Debug(ex, "Could not show Windows toast");
         }
     }

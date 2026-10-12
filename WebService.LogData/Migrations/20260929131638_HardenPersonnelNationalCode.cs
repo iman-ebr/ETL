@@ -10,9 +10,6 @@ namespace WebService.LogData.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            // Fail loudly instead of truncating or silently picking a winner. The old receiver only *warned* on
-            // national-code collisions, so production may already contain duplicates. They must be resolved by a
-            // person before this migration can run. The error message lists the offending codes.
             migrationBuilder.Sql("""
                 DECLARE @tooLong INT = (SELECT COUNT(*) FROM dbo.Personnel WHERE LEN(NationalCode) > 10);
                 IF @tooLong > 0

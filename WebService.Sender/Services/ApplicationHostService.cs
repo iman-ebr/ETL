@@ -6,7 +6,6 @@ using Microsoft.Extensions.Hosting;
 
 namespace WebService.Sender.Services;
 
-/// <summary>Shows the shell once the Generic Host has started. All UI objects come from DI.</summary>
 public sealed class ApplicationHostService(IServiceProvider services) : IHostedService
 {
     public Task StartAsync(CancellationToken cancellationToken)

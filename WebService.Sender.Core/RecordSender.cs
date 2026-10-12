@@ -163,8 +163,6 @@ public class RecordSender
         try
         {
             var body = await response.Content.ReadAsStringAsync(cancellationToken);
-            // An IIS/proxy HTML error page can be many KB. It used to be written untruncated into a NVARCHAR(1000)
-            // TVP column, where it failed on every retry forever.
             return body.Length <= MaxBodyInReason ? body : body[..MaxBodyInReason] + "…";
         }
         catch
